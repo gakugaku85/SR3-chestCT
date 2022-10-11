@@ -22,7 +22,7 @@ RUN pip3 install torch==1.8.0+cu111 torchvision==0.9.0+cu111 torchaudio==0.8.0 -
 
 
 RUN mkdir /var/run/sshd
-RUN echo 'root:gakugaku' | chpasswd
+RUN echo 'root:password' | chpasswd
 # RUN echo '\nPermitRootLogin yes' >> /etc/ssh/sshd_config
 RUN sed -i 's/PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
 RUN sed 's@session\s*required\s*pam_loginuid.so@session optional pam_loginuid.so@g' -i /etc/pam.d/sshd
