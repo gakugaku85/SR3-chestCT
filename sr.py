@@ -12,11 +12,11 @@ import numpy as np
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('-c', '--config', type=str, default='config/sr_sr3_16_128.json',
+    parser.add_argument('-c', '--config', type=str, default='config/sr_sr3_64_512.json',
                         help='JSON file for configuration')
     parser.add_argument('-p', '--phase', type=str, choices=['train', 'val'],
-                        help='Run either train(training) or val(generation)', default='train')
-    parser.add_argument('-gpu', '--gpu_ids', type=str, default="1")
+                        help='Run either train(training) or val(generation)', default='val')
+    parser.add_argument('-gpu', '--gpu_ids', type=str, default="5")
     parser.add_argument('-debug', '-d', action='store_true')
     parser.add_argument('-enable_wandb', action='store_true')
     parser.add_argument('-log_wandb_ckpt', action='store_true')
@@ -54,8 +54,7 @@ if __name__ == "__main__":
     for phase, dataset_opt in opt['datasets'].items():
         if phase == 'train' and args.phase != 'val':
             train_set = Data.create_dataset(dataset_opt, phase)
-            train_loader = Data.create_dataloader(
-                train_set, dataset_opt, phase)
+            train_loader = Data.create_dataloader(train_set, dataset_opt, phase)
         elif phase == 'val':
             val_set = Data.create_dataset(dataset_opt, phase)
             val_loader = Data.create_dataloader(
@@ -103,8 +102,7 @@ if __name__ == "__main__":
                 if current_step % opt['train']['val_freq'] == 0:
                     avg_psnr = 0.0
                     idx = 0
-                    result_path = '{}/{}'.format(opt['path']
-                                                 ['results'], current_epoch)
+                    result_path = '{}/{}'.format(opt['path']['results'], current_epoch)
                     os.makedirs(result_path, exist_ok=True)
 
                     diffusion.set_new_noise_schedule(
@@ -188,6 +186,8 @@ if __name__ == "__main__":
             hr_img = Metrics.tensor2img(visuals['HR'])  # uint8
             lr_img = Metrics.tensor2img(visuals['LR'])  # uint8
             fake_img = Metrics.tensor2img(visuals['INF'])  # uint8
+            sr_map_img = Metrics.tensor2img(visuals['SR'][-1])
+            map_img = (hr_img - sr_map_img)**2
 
             sr_img_mode = 'grid'
             if sr_img_mode == 'single':
@@ -211,6 +211,8 @@ if __name__ == "__main__":
                 lr_img, '{}/{}_{}_lr.png'.format(result_path, current_step, idx))
             Metrics.save_img(
                 fake_img, '{}/{}_{}_inf.png'.format(result_path, current_step, idx))
+            Metrics.save_img(
+                map_img, '{}/{}_{}_2map.png'.format(result_path, current_step, idx))
 
             # generation
             eval_psnr = Metrics.calculate_psnr(Metrics.tensor2img(visuals['SR'][-1]), hr_img)
