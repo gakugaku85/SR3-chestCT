@@ -3,16 +3,19 @@ import core.metrics as Metrics
 from PIL import Image
 import numpy as np
 import glob
+import os
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-p', '--path', type=str,
-                        default='experiments/basic_sr_ffhq_210809_142238/results')
+                        default='experiments/221013pre_2000/results')
     args = parser.parse_args()
     real_names = list(glob.glob('{}/*_hr.png'.format(args.path)))
     fake_names = list(glob.glob('{}/*_sr.png'.format(args.path)))
 
     real_names.sort()
     fake_names.sort()
+
+    result_path = 'experiments/221013pre_2000/results'
 
     avg_psnr = 0.0
     avg_ssim = 0.0
@@ -21,8 +24,7 @@ if __name__ == "__main__":
         idx += 1
         ridx = rname.rsplit("_hr")[0]
         fidx = rname.rsplit("_sr")[0]
-        assert ridx == fidx, 'Image ridx:{ridx}!=fidx:{fidx}'.format(
-            ridx, fidx)
+        # assert ridx == fidx, 'Image ridx:{ridx}!=fidx:{fidx}'.format(ridx, fidx)
 
         hr_img = np.array(Image.open(rname))
         sr_img = np.array(Image.open(fname))
@@ -30,8 +32,10 @@ if __name__ == "__main__":
         ssim = Metrics.calculate_ssim(sr_img, hr_img)
         avg_psnr += psnr
         avg_ssim += ssim
-        if idx % 20 == 0:
-            print('Image:{}, PSNR:{:.4f}, SSIM:{:.4f}'.format(idx, psnr, ssim))
+        print('Image:{}, PSNR:{:.4f}, SSIM:{:.4f}'.format(idx, psnr, ssim))
+        # if idx % 20 == 0:
+        map_img = (hr_img - sr_img)**2
+        Metrics.save_img(map_img, '{}/{}_2map.png'.format(result_path, idx))
 
     avg_psnr = avg_psnr / idx
     avg_ssim = avg_ssim / idx
