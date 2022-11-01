@@ -8,14 +8,17 @@ from PIL import Image
 from tqdm import tqdm
 from torchvision.transforms import functional as trans_fn
 import os
+import os.path as osp
 from pathlib import Path
 import lmdb
 import numpy as np
 import time
+import SimpleITK as sitk
+from glob import glob
 
 
 def resize_and_convert(img, size, resample):
-    if(img.size[0] != size):
+    if(img.size != size):
         img = trans_fn.resize(img, size, resample)
         img = trans_fn.center_crop(img, size)
     return img
@@ -42,10 +45,20 @@ def resize_multiple(img, sizes=(16, 128), resample=Image.BICUBIC, lmdb_save=Fals
 def resize_worker(img_file, sizes, resample, lmdb_save=False):
     img = Image.open(img_file)
     img = img.convert('RGB')
-    out = resize_multiple(
-        img, sizes=sizes, resample=resample, lmdb_save=lmdb_save)
+    out = resize_multiple(img, sizes=sizes, resample=resample, lmdb_save=lmdb_save)
 
     return img_file.name.split('.')[0], out
+
+def resize_worker_mhd(img_file, sizes, resample, lmdb_save=False):
+    img_mhd = sitk.ReadImage(img_file)
+    nda_img_mhd = sitk.GetArrayFromImage(img_mhd)
+    pil_image = Image.fromarray(nda_img_mhd)
+    h , w = nda_img_mhd.shape
+    LR_h, LR_w = h//4, w//4
+    mhd_size = [(LR_h, LR_w), (h, w)]
+    out = resize_multiple(pil_image, sizes=mhd_size, resample=resample, lmdb_save=lmdb_save)
+
+    return os.path.basename(img_file).split('.')[0], out
 
 class WorkingContext():
     def __init__(self, resize_fn, lmdb_save, out_path, env, sizes):
@@ -97,11 +110,16 @@ def all_threads_inactive(worker_threads):
             return False
     return True
 
+def save_mhd(img, img_path):
+    # if img.ndim == 3:
+    #     img = img[:, :, 0]
+    img = sitk.GetImageFromArray(img)
+    sitk.WriteImage(img, img_path)
+
 def prepare(img_path, out_path, n_worker, sizes=(16, 128), resample=Image.BICUBIC, lmdb_save=False):
-    resize_fn = partial(resize_worker, sizes=sizes,
-                        resample=resample, lmdb_save=lmdb_save)
-    files = [p for p in Path(
-        '{}'.format(img_path)).glob(f'**/*')]
+    resize_fn = partial(resize_worker_mhd, sizes=sizes, resample=resample, lmdb_save=lmdb_save)
+    # files = [p for p in Path('{}'.format(img_path)).glob(f'**/*')]
+    files = glob(osp.join(img_path, "*mhd"))
 
     if not lmdb_save:
         os.makedirs(out_path, exist_ok=True)
@@ -139,12 +157,12 @@ def prepare(img_path, out_path, n_worker, sizes=(16, 128), resample=Image.BICUBI
             i, imgs = resize_fn(file)
             lr_img, hr_img, sr_img = imgs
             if not lmdb_save:
-                lr_img.save(
-                    '{}/lr_{}/{}.png'.format(out_path, sizes[0], i.zfill(5)))
-                hr_img.save(
-                    '{}/hr_{}/{}.png'.format(out_path, sizes[1], i.zfill(5)))
-                sr_img.save(
-                    '{}/sr_{}_{}/{}.png'.format(out_path, sizes[0], sizes[1], i.zfill(5)))
+                save_mhd(lr_img, '{}/lr_{}/{}.mhd'.format(out_path, sizes[0], i.zfill(5)))
+                save_mhd(hr_img, '{}/hr_{}/{}.mhd'.format(out_path, sizes[1], i.zfill(5)))
+                save_mhd(sr_img, '{}/sr_{}_{}/{}.mhd'.format(out_path, sizes[0], sizes[1], i.zfill(5)))
+                # lr_img.save('{}/lr_{}/{}.png'.format(out_path, sizes[0], i.zfill(5)))
+                # hr_img.save('{}/hr_{}/{}.png'.format(out_path, sizes[1], i.zfill(5)))
+                # sr_img.save('{}/sr_{}_{}/{}.png'.format(out_path, sizes[0], sizes[1], i.zfill(5)))
             else:
                 with env.begin(write=True) as txn:
                     txn.put('lr_{}_{}'.format(
@@ -161,12 +179,12 @@ def prepare(img_path, out_path, n_worker, sizes=(16, 128), resample=Image.BICUBI
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--path', '-p', type=str,
-                        default='{}/Dataset/celebahq_256'.format(Path.home()))
+                        default='../datasetCT/from_sam/1792_microCT/upperandlower_99point95percentile_BicubicDSby2_denoise_2dslices_masked_normalised_1792')
     parser.add_argument('--out', '-o', type=str,
-                        default='./dataset/celebahq')
+                        default='./dataset/microCT_slices')
 
     parser.add_argument('--size', type=str, default='64,512')
-    parser.add_argument('--n_worker', type=int, default=3)
+    parser.add_argument('--n_worker', type=int, default=1)
     parser.add_argument('--resample', type=str, default='bicubic')
     # default save in png format
     parser.add_argument('--lmdb', '-l', action='store_true')
