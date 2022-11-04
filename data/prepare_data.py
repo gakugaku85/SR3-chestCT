@@ -181,9 +181,9 @@ if __name__ == '__main__':
     parser.add_argument('--path', '-p', type=str,
                         default='../datasetCT/from_sam/1792_microCT/upperandlower_99point95percentile_BicubicDSby2_denoise_2dslices_masked_normalised_1792')
     parser.add_argument('--out', '-o', type=str,
-                        default='./dataset/microCT_slices')
+                        default='./dataset/microCT_slices_1792')
 
-    parser.add_argument('--size', type=str, default='64,512')
+    parser.add_argument('--size', type=str, default='0, 00')
     parser.add_argument('--n_worker', type=int, default=1)
     parser.add_argument('--resample', type=str, default='bicubic')
     # default save in png format

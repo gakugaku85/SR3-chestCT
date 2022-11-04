@@ -3,6 +3,8 @@ import torch
 import torchvision
 import random
 import numpy as np
+from glob import glob
+import os.path as osp
 
 IMG_EXTENSIONS = ['.jpg', '.JPG', '.jpeg', '.JPEG',
                   '.png', '.PNG', '.ppm', '.PPM', '.bmp', '.BMP']
@@ -22,6 +24,10 @@ def get_paths_from_images(path):
                 images.append(img_path)
     assert images, '{:s} has no valid image file'.format(path)
     return sorted(images)
+
+def get_paths_from_mhds(path):
+    files = glob(osp.join(path, "*mhd"))
+    return sorted(files)
 
 
 def augment(img_list, hflip=True, rot=True, split='val'):
@@ -45,6 +51,7 @@ def augment(img_list, hflip=True, rot=True, split='val'):
 def transform2numpy(img):
     img = np.array(img)
     img = img.astype(np.float32) / 255.
+    img = img.clip(min=0, max=1)
     if img.ndim == 2:
         img = np.expand_dims(img, axis=2)
     # some images have 4 channels
@@ -63,21 +70,21 @@ def transform2tensor(img, min_max=(0, 1)):
 
 
 # implementation by numpy and torch
-# def transform_augment(img_list, split='val', min_max=(0, 1)):
-#     imgs = [transform2numpy(img) for img in img_list]
-#     imgs = augment(imgs, split=split)
-#     ret_img = [transform2tensor(img, min_max) for img in imgs]
-#     return ret_img
+def transform_augment(img_list, split='val', min_max=(0, 1)):
+    imgs = [transform2numpy(img) for img in img_list]
+    imgs = augment(imgs, split=split)
+    ret_img = [transform2tensor(img, min_max) for img in imgs]
+    return ret_img
 
 
 # implementation by torchvision, detail in https://github.com/Janspiry/Image-Super-Resolution-via-Iterative-Refinement/issues/14
-totensor = torchvision.transforms.ToTensor()
-hflip = torchvision.transforms.RandomHorizontalFlip()
-def transform_augment(img_list, split='val', min_max=(0, 1)):    
-    imgs = [totensor(img) for img in img_list]
-    if split == 'train':
-        imgs = torch.stack(imgs, 0)
-        imgs = hflip(imgs)
-        imgs = torch.unbind(imgs, dim=0)
-    ret_img = [img * (min_max[1] - min_max[0]) + min_max[0] for img in imgs]
-    return ret_img
+# totensor = torchvision.transforms.ToTensor()
+# hflip = torchvision.transforms.RandomHorizontalFlip()
+# def transform_augment(img_list, split='val', min_max=(0, 1)):    
+#     imgs = [totensor(img) for img in img_list]
+#     if split == 'train':
+#         imgs = torch.stack(imgs, 0)
+#         imgs = hflip(imgs)
+#         imgs = torch.unbind(imgs, dim=0)
+#     ret_img = [img * (min_max[1] - min_max[0]) + min_max[0] for img in imgs]
+#     return ret_img

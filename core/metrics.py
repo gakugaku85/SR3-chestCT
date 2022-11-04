@@ -3,6 +3,7 @@ import math
 import numpy as np
 import cv2
 from torchvision.utils import make_grid
+import SimpleITK as sitk
 
 
 def tensor2img(tensor, out_type=np.uint8, min_max=(-1, 1)):
@@ -66,6 +67,12 @@ def tensor2mhd(tensor, out_type=np.float32, min_max=(0, 1)):  # type: ignore
 def save_img(img, img_path, mode='RGB'):
     cv2.imwrite(img_path, cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
     # cv2.imwrite(img_path, img)
+
+def save_mhd(img, img_path):
+    # if img.ndim == 3:
+    #     img = img[:, :, 0]
+    img = sitk.GetImageFromArray(img)
+    sitk.WriteImage(img, img_path)
 
 
 def calculate_psnr(img1, img2):
