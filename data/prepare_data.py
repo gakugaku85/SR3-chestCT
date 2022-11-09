@@ -18,7 +18,7 @@ from glob import glob
 
 
 def resize_and_convert(img, size, resample):
-    if(img.size != size):
+    if(img.size[0] != size):
         img = trans_fn.resize(img, size, resample)
         img = trans_fn.center_crop(img, size)
     return img
@@ -42,6 +42,28 @@ def resize_multiple(img, sizes=(16, 128), resample=Image.BICUBIC, lmdb_save=Fals
 
     return [lr_img, hr_img, sr_img]
 
+def resize_multiple_patch_save(img, out_path, sizes=(16, 128), resample=Image.BICUBIC, img_file="", lmdb_save=False):
+    os.makedirs(out_path, exist_ok=True)
+    os.makedirs('{}/lr_{}/{}'.format(out_path, sizes[0], img_file), exist_ok=True)
+    os.makedirs('{}/hr_{}/{}'.format(out_path, sizes[1], img_file), exist_ok=True)
+    os.makedirs('{}/sr_{}_{}/{}'.format(out_path, sizes[0], sizes[1], img_file), exist_ok=True)
+
+    H, W= img.shape
+    nH = int(H/sizes[1])
+    nW = int(W/sizes[1])
+    
+    imgs = [img[sizes[1]*x:sizes[1]*(x+1), sizes[1]*y:sizes[1]*(y+1)] for x in range(nH) for y in range(nW)]
+
+    for i, img in enumerate(imgs):
+        pil_image = Image.fromarray(img)
+        lr_img = resize_and_convert(pil_image, sizes[0], resample)
+        hr_img = resize_and_convert(pil_image, sizes[1], resample)
+        sr_img = resize_and_convert(lr_img, sizes[1], resample)
+
+        save_mhd(lr_img, '{}/lr_{}/{}/{}.mhd'.format(out_path, sizes[0], img_file, i))
+        save_mhd(hr_img, '{}/hr_{}/{}/{}.mhd'.format(out_path, sizes[1], img_file, i))
+        save_mhd(sr_img, '{}/sr_{}_{}/{}/{}.mhd'.format(out_path, sizes[0], sizes[1], img_file, i))
+
 def resize_worker(img_file, sizes, resample, lmdb_save=False):
     img = Image.open(img_file)
     img = img.convert('RGB')
@@ -49,16 +71,11 @@ def resize_worker(img_file, sizes, resample, lmdb_save=False):
 
     return img_file.name.split('.')[0], out
 
-def resize_worker_mhd(img_file, sizes, resample, lmdb_save=False):
+def resize_worker_mhd(img_file, sizes, resample, out_path, lmdb_save=False):
     img_mhd = sitk.ReadImage(img_file)
     nda_img_mhd = sitk.GetArrayFromImage(img_mhd)
-    pil_image = Image.fromarray(nda_img_mhd)
-    h , w = nda_img_mhd.shape
-    LR_h, LR_w = h//4, w//4
-    mhd_size = [(LR_h, LR_w), (h, w)]
-    out = resize_multiple(pil_image, sizes=mhd_size, resample=resample, lmdb_save=lmdb_save)
-
-    return os.path.basename(img_file).split('.')[0], out
+    img_file = os.path.basename(img_file).split('.')[0]
+    resize_multiple_patch_save(nda_img_mhd, out_path, sizes=sizes, resample=resample, img_file=img_file, lmdb_save=lmdb_save)
 
 class WorkingContext():
     def __init__(self, resize_fn, lmdb_save, out_path, env, sizes):
@@ -117,73 +134,42 @@ def save_mhd(img, img_path):
     sitk.WriteImage(img, img_path)
 
 def prepare(img_path, out_path, n_worker, sizes=(16, 128), resample=Image.BICUBIC, lmdb_save=False):
-    resize_fn = partial(resize_worker_mhd, sizes=sizes, resample=resample, lmdb_save=lmdb_save)
+    resize_fn = partial(resize_worker_mhd, sizes=sizes, resample=resample, out_path=out_path, lmdb_save=lmdb_save)
     # files = [p for p in Path('{}'.format(img_path)).glob(f'**/*')]
     files = glob(osp.join(img_path, "*mhd"))
 
-    if not lmdb_save:
-        os.makedirs(out_path, exist_ok=True)
-        os.makedirs('{}/lr_{}'.format(out_path, sizes[0]), exist_ok=True)
-        os.makedirs('{}/hr_{}'.format(out_path, sizes[1]), exist_ok=True)
-        os.makedirs('{}/sr_{}_{}'.format(out_path,
-                    sizes[0], sizes[1]), exist_ok=True)
-    else:
-        env = lmdb.open(out_path, map_size=1024 ** 4, readahead=False)
+    # if n_worker > 1:
+    #     # prepare data subsets
 
-    if n_worker > 1:
-        # prepare data subsets
-        multi_env = None
-        if lmdb_save:
-            multi_env = env
+    #     file_subsets = np.array_split(files, n_worker)
+    #     worker_threads = []
+    #     wctx = WorkingContext(resize_fn, lmdb_save, out_path, multi_env, sizes)
 
-        file_subsets = np.array_split(files, n_worker)
-        worker_threads = []
-        wctx = WorkingContext(resize_fn, lmdb_save, out_path, multi_env, sizes)
-
-        # start worker processes, monitor results
-        for i in range(n_worker):
-            proc = Process(target=prepare_process_worker, args=(wctx, file_subsets[i]))
-            proc.start()
-            worker_threads.append(proc)
+    #     # start worker processes, monitor results
+    #     for i in range(n_worker):
+    #         proc = Process(target=prepare_process_worker, args=(wctx, file_subsets[i]))
+    #         proc.start()
+    #         worker_threads.append(proc)
         
-        total_count = str(len(files))
-        while not all_threads_inactive(worker_threads):
-            print("\r{}/{} images processed".format(wctx.value(), total_count), end=" ")
-            time.sleep(0.1)
+    #     total_count = str(len(files))
+    #     while not all_threads_inactive(worker_threads):
+    #         print("\r{}/{} images processed".format(wctx.value(), total_count), end=" ")
+    #         time.sleep(0.1)
 
-    else:
-        total = 0
-        for file in tqdm(files):
-            i, imgs = resize_fn(file)
-            lr_img, hr_img, sr_img = imgs
-            if not lmdb_save:
-                save_mhd(lr_img, '{}/lr_{}/{}.mhd'.format(out_path, sizes[0], i.zfill(5)))
-                save_mhd(hr_img, '{}/hr_{}/{}.mhd'.format(out_path, sizes[1], i.zfill(5)))
-                save_mhd(sr_img, '{}/sr_{}_{}/{}.mhd'.format(out_path, sizes[0], sizes[1], i.zfill(5)))
-                # lr_img.save('{}/lr_{}/{}.png'.format(out_path, sizes[0], i.zfill(5)))
-                # hr_img.save('{}/hr_{}/{}.png'.format(out_path, sizes[1], i.zfill(5)))
-                # sr_img.save('{}/sr_{}_{}/{}.png'.format(out_path, sizes[0], sizes[1], i.zfill(5)))
-            else:
-                with env.begin(write=True) as txn:
-                    txn.put('lr_{}_{}'.format(
-                        sizes[0], i.zfill(5)).encode('utf-8'), lr_img)
-                    txn.put('hr_{}_{}'.format(
-                        sizes[1], i.zfill(5)).encode('utf-8'), hr_img)
-                    txn.put('sr_{}_{}_{}'.format(
-                        sizes[0], sizes[1], i.zfill(5)).encode('utf-8'), sr_img)
-            total += 1
-            if lmdb_save:
-                with env.begin(write=True) as txn:
-                    txn.put('length'.encode('utf-8'), str(total).encode('utf-8'))
+    # else:
+    total = 0
+    for file in tqdm(files):
+        resize_fn(file)
+        total += 1
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--path', '-p', type=str,
-                        default='../datasetCT/from_sam/1792_microCT/upperandlower_99point95percentile_BicubicDSby2_denoise_2dslices_masked_normalised_1792')
+                        default='../datasetCT/from_sam/1794_microCT/upperandlower_99point95percentile_BicubicDSby2_denoise_2dslices_masked_normalised_1794')
     parser.add_argument('--out', '-o', type=str,
-                        default='./dataset/microCT_slices_1792')
+                        default='./dataset/microCT_slices_1794')
 
-    parser.add_argument('--size', type=str, default='0, 00')
+    parser.add_argument('--size', type=str, default='16, 64')
     parser.add_argument('--n_worker', type=int, default=1)
     parser.add_argument('--resample', type=str, default='bicubic')
     # default save in png format
