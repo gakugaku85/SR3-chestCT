@@ -15,7 +15,7 @@ if __name__ == "__main__":
     parser.add_argument('-c', '--config', type=str, default='config/sr_sr3_64_512.json',
                         help='JSON file for configuration')
     parser.add_argument('-p', '--phase', type=str, choices=['train', 'val'],
-                        help='Run either train(training) or val(generation)', default='val')
+                        help='Run either train(training) or val(generation)', default='train')
     parser.add_argument('-gpu', '--gpu_ids', type=str, default="2")
     parser.add_argument('-debug', '-d', action='store_true')
     parser.add_argument('-enable_wandb', action='store_true')
@@ -57,8 +57,7 @@ if __name__ == "__main__":
             train_loader = Data.create_dataloader(train_set, dataset_opt, phase)
         elif phase == 'val':
             val_set = Data.create_dataset(dataset_opt, phase)
-            val_loader = Data.create_dataloader(
-                val_set, dataset_opt, phase)
+            val_loader = Data.create_dataloader(val_set, dataset_opt, phase)
     logger.info('Initial Dataset Finished')
 
     # model
@@ -71,11 +70,11 @@ if __name__ == "__main__":
     n_iter = opt['train']['n_iter']
 
     if opt['path']['resume_state']:
-        logger.info('Resuming training from epoch: {}, iter: {}.'.format(
-            current_epoch, current_step))
+        logger.info('Resuming training from epoch: {}, iter: {}.'.format(current_epoch, current_step))
 
     diffusion.set_new_noise_schedule(
         opt['model']['beta_schedule'][opt['phase']], schedule_phase=opt['phase'])
+
     if opt['phase'] == 'train':
         while current_step < n_iter:
             current_epoch += 1
@@ -107,15 +106,20 @@ if __name__ == "__main__":
 
                     diffusion.set_new_noise_schedule(
                         opt['model']['beta_schedule']['val'], schedule_phase='val')
-                    for _,  val_data in enumerate(val_loader):
-                        idx += 1
-                        diffusion.feed_data(val_data)
-                        diffusion.test(continous=False)
-                        visuals = diffusion.get_current_visuals()
-                        sr_img = Metrics.tensor2mhd(visuals['SR'])  # uint8
-                        hr_img = Metrics.tensor2mhd(visuals['HR'])  # uint8
-                        lr_img = Metrics.tensor2mhd(visuals['LR'])  # uint8
-                        fake_img = Metrics.tensor2mhd(visuals['INF'])  # uint8
+
+                    for _,  val_data_patch in enumerate(val_loader):
+                        sr_imgs, hr_imgs, lr_imgs, fake_imgs = []
+                        for _, val_data in enumerate(val_data_patch):
+                            idx += 1
+                            diffusion.feed_data(val_data)
+                            diffusion.test(continous=False)
+                            visuals = diffusion.get_current_visuals()
+                            sr_imgs.append(Metrics.tensor2mhd(visuals['SR']))  # uint8
+                            hr_imgs.append(Metrics.tensor2mhd(visuals['HR']))  # uint8
+                            lr_imgs.append(Metrics.tensor2mhd(visuals['LR']))  # uint8
+                            fake_imgs.append(Metrics.tensor2mhd(visuals['INF']))  # uint8
+
+                        sr_img, hr_img, lr_img, fake_img = Metrics.concatImage(sr_imgs, hr_imgs, lr_imgs, fake_imgs)
 
                         # generation
                         Metrics.save_mhd(
@@ -131,8 +135,7 @@ if __name__ == "__main__":
                         #     np.transpose(np.concatenate(
                         #         (fake_img, sr_img, hr_img), axis=1), [2, 0, 1]),
                         #     idx)
-                        avg_psnr += Metrics.calculate_psnr(
-                            sr_img, hr_img)
+                        avg_psnr += Metrics.calculate_psnr(sr_img, hr_img)
 
                         if wandb_logger:
                             wandb_logger.log_image(
