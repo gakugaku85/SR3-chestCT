@@ -16,7 +16,7 @@
         "train": {
             "name": "1784",
             "mode": "HR", // whether need LR img
-            "dataroot": "dataset/microCT_slices_train_0_0",
+            "dataroot": "dataset/microCT_slices_1784_patch_16_64",
             "datatype": "mhd", //lmdb or img, path of img files
             "l_resolution": 16, // low resolution need to super_resolution
             "r_resolution": 64, // high resolution

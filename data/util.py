@@ -27,6 +27,13 @@ def get_paths_from_images(path):
 
 def get_paths_from_mhds(path):
     assert os.path.isdir(path), '{:s} is not a valid directory'.format(path)
+    images = []
+    for dirpath, _, fnames in sorted(os.walk(path)):
+        for fname in sorted(fnames):
+            if is_image_file(fname):
+                img_path = os.path.join(dirpath, fname)
+                print(img_path)
+                images.append(img_path)
     files = glob(osp.join(path, "*mhd"))
     return sorted(files)
 

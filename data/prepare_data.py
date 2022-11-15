@@ -44,6 +44,9 @@ def resize_multiple(img, sizes=(16, 128), resample=Image.BICUBIC, lmdb_save=Fals
 
 def resize_multiple_patch_save(img, out_path, sizes=(16, 128), resample=Image.BICUBIC, img_file="", lmdb_save=False):
     os.makedirs(out_path, exist_ok=True)
+    os.makedirs('{}/nonzero/lr_{}/{}'.format(out_path, sizes[0], img_file), exist_ok=True)
+    os.makedirs('{}/nonzero/hr_{}/{}'.format(out_path, sizes[1], img_file), exist_ok=True)
+    os.makedirs('{}/nonzero/sr_{}_{}/{}'.format(out_path, sizes[0], sizes[1], img_file), exist_ok=True)
     os.makedirs('{}/lr_{}/{}'.format(out_path, sizes[0], img_file), exist_ok=True)
     os.makedirs('{}/hr_{}/{}'.format(out_path, sizes[1], img_file), exist_ok=True)
     os.makedirs('{}/sr_{}_{}/{}'.format(out_path, sizes[0], sizes[1], img_file), exist_ok=True)
@@ -59,7 +62,10 @@ def resize_multiple_patch_save(img, out_path, sizes=(16, 128), resample=Image.BI
         lr_img = resize_and_convert(pil_image, sizes[0], resample)
         hr_img = resize_and_convert(pil_image, sizes[1], resample)
         sr_img = resize_and_convert(lr_img, sizes[1], resample)
-
+        if np.all(img != 0):
+            save_mhd(lr_img, '{}/nonzero/lr_{}/{}/{}.mhd'.format(out_path, sizes[0], img_file, i))
+            save_mhd(hr_img, '{}/nonzero/hr_{}/{}/{}.mhd'.format(out_path, sizes[1], img_file, i))
+            save_mhd(sr_img, '{}/nonzero/sr_{}_{}/{}/{}.mhd'.format(out_path, sizes[0], sizes[1], img_file, i))
         save_mhd(lr_img, '{}/lr_{}/{}/{}.mhd'.format(out_path, sizes[0], img_file, i))
         save_mhd(hr_img, '{}/hr_{}/{}/{}.mhd'.format(out_path, sizes[1], img_file, i))
         save_mhd(sr_img, '{}/sr_{}_{}/{}/{}.mhd'.format(out_path, sizes[0], sizes[1], img_file, i))
