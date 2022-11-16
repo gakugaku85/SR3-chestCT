@@ -5,9 +5,10 @@ import random
 import numpy as np
 from glob import glob
 import os.path as osp
+from natsort import natsorted
 
 IMG_EXTENSIONS = ['.jpg', '.JPG', '.jpeg', '.JPEG',
-                  '.png', '.PNG', '.ppm', '.PPM', '.bmp', '.BMP']
+                  '.png', '.PNG', '.ppm', '.PPM', '.bmp', '.BMP', '.mhd']
 
 
 def is_image_file(filename):
@@ -32,10 +33,8 @@ def get_paths_from_mhds(path):
         for fname in sorted(fnames):
             if is_image_file(fname):
                 img_path = os.path.join(dirpath, fname)
-                print(img_path)
                 images.append(img_path)
-    files = glob(osp.join(path, "*mhd"))
-    return sorted(files)
+    return natsorted(images)
 
 
 def augment(img_list, hflip=True, rot=True, split='val'):

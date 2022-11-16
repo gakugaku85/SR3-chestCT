@@ -10,7 +10,7 @@ from glob import glob
 
 
 class LRHRDataset(Dataset):
-    def __init__(self, dataroot, datatype, l_resolution=16, r_resolution=128, split='train', data_len=-1, need_LR=False):
+    def __init__(self, dataroot, datatype, l_resolution=16, r_resolution=128, split='train', data_len=-1, need_LR=False, slice_file=0):
         self.datatype = datatype
         self.l_res = l_resolution
         self.r_res = r_resolution
@@ -42,30 +42,27 @@ class LRHRDataset(Dataset):
             else:
                 self.data_len = min(self.data_len, self.dataset_len)
         elif datatype == 'mhd':
-            if split == 'val': #ここはval
-                hr_files = glob(osp.join(dataroot+'/hr_{}/*'.format(r_resolution)))
-                lr_files = glob(osp.join(dataroot+'/lr_{}/*'.format(l_resolution)))
-                sr_files = glob(osp.join(dataroot+'/sr_{}_{}/*'.format(l_resolution, r_resolution)))
-                self.sr_path = [Util.get_paths_from_mhds(
-                    '{}'.format(file)) for file in sr_files]
-                self.hr_path = [Util.get_paths_from_mhds(
-                    '{}'.format(file)) for file in hr_files]
+            if split == 'val':
+                self.sr_path = Util.get_paths_from_mhds(
+                    '{}/sr_{}_{}/{}'.format(dataroot, l_resolution, r_resolution, slice_file))
+                self.hr_path = Util.get_paths_from_mhds(
+                    '{}/hr_{}/{}'.format(dataroot, r_resolution, slice_file))
                 if self.need_LR:
-                    self.lr_path = [Util.get_paths_from_mhds(
-                    '{}'.format(file)) for file in lr_files]
+                    self.lr_path = Util.get_paths_from_mhds(
+                        '{}/lr_{}/{}'.format(dataroot, l_resolution, slice_file))
                 self.dataset_len = len(self.hr_path)
                 if self.data_len <= 0:
                     self.data_len = self.dataset_len
                 else:
                     self.data_len = min(self.data_len, self.dataset_len)
-            elif split == 'train':#ここはtrain
+            else:#ここはtrain
                 self.sr_path = Util.get_paths_from_mhds(
-                    '{}/sr_{}_{}'.format(dataroot, l_resolution, r_resolution))
+                    '{}/nonzero/sr_{}_{}'.format(dataroot, l_resolution, r_resolution))
                 self.hr_path = Util.get_paths_from_mhds(
-                    '{}/hr_{}'.format(dataroot, r_resolution))
+                    '{}/nonzero/hr_{}'.format(dataroot, r_resolution))
                 if self.need_LR:
                     self.lr_path = Util.get_paths_from_mhds(
-                        '{}/lr_{}'.format(dataroot, l_resolution))
+                        '{}/nonzero/lr_{}'.format(dataroot, l_resolution))
                 self.dataset_len = len(self.hr_path)
                 if self.data_len <= 0:
                     self.data_len = self.dataset_len
@@ -81,7 +78,6 @@ class LRHRDataset(Dataset):
     def __getitem__(self, index):
         img_HR = None
         img_LR = None
-        # print(index)
 
         if self.datatype == 'lmdb':
             with self.env.begin(write=False) as txn:
@@ -124,28 +120,16 @@ class LRHRDataset(Dataset):
             if self.need_LR:
                 img_LR = Image.open(self.lr_path[index]).convert("RGB")
         elif self.datatype == 'mhd':
-            if self.split == 'val': #validationはpatchの配列
-                imgs_HR = [sitk.ReadImage(file) for file in self.hr_path[index]]
-                imgs_SR = [sitk.ReadImage(file) for file in self.sr_path[index]]
-                nda_imgs_HR = [sitk.GetArrayFromImage(img_HR) for img_HR in imgs_HR]
-                nda_imgs_SR = [sitk.GetArrayFromImage(img_SR) for img_SR in imgs_SR]
-                img_HR = [Image.fromarray(nda_img_HR) for nda_img_HR in nda_imgs_HR]
-                img_SR = [Image.fromarray(nda_img_SR) for nda_img_SR in nda_imgs_SR]
-                if self.need_LR:
-                    imgs_LR = [sitk.ReadImage(file) for file in self.lr_path[index]]
-                    nda_imgs_LR = [sitk.GetArrayFromImage(img_LR) for img_LR in imgs_LR]
-                    img_LR = [Image.fromarray(nda_img_LR) for nda_img_LR in nda_imgs_LR]
-            else:
-                img_HR = sitk.ReadImage(self.hr_path[index])
-                img_SR = sitk.ReadImage(self.sr_path[index])
-                nda_img_HR = sitk.GetArrayFromImage(img_HR)
-                nda_img_SR = sitk.GetArrayFromImage(img_SR)
-                img_HR = Image.fromarray(nda_img_HR)
-                img_SR = Image.fromarray(nda_img_SR)
-                if self.need_LR:
-                    img_LR = sitk.ReadImage(self.lr_path[index])
-                    nda_img_LR = sitk.GetArrayFromImage(img_LR)
-                    img_LR = Image.fromarray(nda_img_LR)
+            img_HR = sitk.ReadImage(self.hr_path[index])
+            img_SR = sitk.ReadImage(self.sr_path[index])
+            nda_img_HR = sitk.GetArrayFromImage(img_HR)
+            nda_img_SR = sitk.GetArrayFromImage(img_SR)
+            img_HR = Image.fromarray(nda_img_HR)
+            img_SR = Image.fromarray(nda_img_SR)
+            if self.need_LR:
+                img_LR = sitk.ReadImage(self.lr_path[index])
+                nda_img_LR = sitk.GetArrayFromImage(img_LR)
+                img_LR = Image.fromarray(nda_img_LR)
         if self.need_LR:
             [img_LR, img_SR, img_HR] = Util.transform_augment(
                 [img_LR, img_SR, img_HR], split=self.split, min_max=(0, 1))
