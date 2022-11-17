@@ -86,12 +86,7 @@ if __name__ == "__main__":
                 if current_step > n_iter:
                     break
                 diffusion.feed_data(train_data)
-                diffusion.test(continous=False)
-                visuals = diffusion.get_current_visuals()
-                sr_img = Metrics.tensor2mhd(visuals['SR'])  # uint8
                 diffusion.optimize_parameters()
-                Metrics.save_mhd(
-                    sr_img, '{}iter/{}_sr.mhd'.format(result_path, current_step))
                 # log
                 if current_step % opt['train']['print_freq'] == 0:
                     logs = diffusion.get_current_log()
@@ -102,6 +97,17 @@ if __name__ == "__main__":
                         tb_logger.add_scalar(k, v, current_step)
                     logger.info(message)
 
+                    diffusion.test(continous=False)
+                    visuals = diffusion.get_current_visuals()
+                    sr_img = Metrics.tensor2mhd(visuals['SR'])  # uint8
+
+                    Metrics.save_mhd(sr_img, '{}iter/{}_sr.mhd'.format(result_path, current_step))
+                    if wandb_logger:
+                        wandb_logger.log_image(
+                            f'iter_{current_step}', 
+                            sr_img
+                        )
+
                     if wandb_logger:
                         wandb_logger.log_metrics(logs)
 
@@ -110,7 +116,7 @@ if __name__ == "__main__":
                     avg_psnr = 0.0
                     idx = 0
                     result_path = '{}/{}'.format(opt['path']['results'], current_epoch)
-                    os.makedirs(result_path+"epoch", exist_ok=True)
+                    os.makedirs(result_path, exist_ok=True)
 
                     diffusion.set_new_noise_schedule(
                         opt['model']['beta_schedule']['val'], schedule_phase='val')
@@ -167,10 +173,7 @@ if __name__ == "__main__":
                     tb_logger.add_scalar('psnr', avg_psnr, current_step)
 
                     if wandb_logger:
-                        wandb_logger.log_metrics({
-                            'validation/val_psnr': avg_psnr,
-                            'validation/val_step': val_step
-                        })
+                        wandb_logger.log_metrics(avg_psnr)
                         val_step += 1
 
                 if current_step % opt['train']['save_checkpoint_freq'] == 0:
