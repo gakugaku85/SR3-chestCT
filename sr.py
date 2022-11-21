@@ -79,12 +79,13 @@ if __name__ == "__main__":
     if opt['phase'] == 'train':
         while current_step < n_iter:
             current_epoch += 1
-            for _, train_data in enumerate(train_loader):
-                result_path = '{}/{}'.format(opt['path']['results'], current_step)
-                os.makedirs(result_path+"iter", exist_ok=True)
+            for _, train_data in tqdm(enumerate(train_loader), desc='training step', total=len(train_loader)):
+                # result_path = '{}/{}'.format(opt['path']['results'], current_step)
+                # os.makedirs(result_path+"iter", exist_ok=True)
+
                 current_step += 1
-                if current_step > n_iter:
-                    break
+                # if current_step > n_iter:
+                #     break
                 diffusion.feed_data(train_data)
                 diffusion.optimize_parameters()
                 # log
@@ -97,16 +98,15 @@ if __name__ == "__main__":
                         tb_logger.add_scalar(k, v, current_step)
                     logger.info(message)
 
-                    diffusion.test(continous=False)
-                    visuals = diffusion.get_current_visuals()
-                    sr_img = Metrics.tensor2mhd(visuals['SR'])  # uint8
+                    # visuals = diffusion.get_current_visuals()
+                    # sr_img = Metrics.tensor2mhd(visuals['SR'])  # uint8
 
-                    Metrics.save_mhd(sr_img, '{}iter/{}_sr.mhd'.format(result_path, current_step))
-                    if wandb_logger:
-                        wandb_logger.log_image(
-                            f'iter_{current_step}', 
-                            sr_img
-                        )
+                    # Metrics.save_mhd(sr_img, '{}iter/{}_sr.mhd'.format(result_path, current_step))
+                    # if wandb_logger:
+                    #     wandb_logger.log_image(
+                    #         f'iter_{current_step}', 
+                    #         sr_img
+                    #     )
 
                     if wandb_logger:
                         wandb_logger.log_metrics(logs)
@@ -154,6 +154,10 @@ if __name__ == "__main__":
                         #         (fake_img, sr_img, hr_img), axis=1), [2, 0, 1]),
                         #     idx)
                         avg_psnr += Metrics.calculate_psnr(sr_img, hr_img)
+
+                        logs = diffusion.get_current_log()
+                        if wandb_logger:
+                            wandb_logger.log_metrics(logs)
 
                         if wandb_logger:
                             wandb_logger.log_image(
