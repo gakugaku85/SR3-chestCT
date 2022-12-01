@@ -57,6 +57,12 @@ class DDPM(BaseModel):
         # set log
         self.log_dict['l_pix'] = l_pix.item()
 
+    def print_train_result(self):
+        train_out = self.netG.print_train_result()
+        out = train_out.detach().float().cpu()
+
+        return out 
+
     def test(self, continous=False):
         self.netG.eval()
         with torch.no_grad():

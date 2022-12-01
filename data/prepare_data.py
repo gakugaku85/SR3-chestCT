@@ -29,6 +29,16 @@ def image_convert_bytes(img):
     img.save(buffer, format='png')
     return buffer.getvalue()
 
+def padding_square(img, sizes):
+    H, W =img.shape
+    while H % sizes[1] != 0:
+        H=H+1
+    while W % sizes[1] != 0:
+        W=W+1
+    pil_image = Image.fromarray(img)
+    new_img = Image.new(pil_image.mode, (W, H), 0)
+    new_img.paste(pil_image, (0, 0))
+    return np.array(new_img)
 
 def resize_multiple(img, sizes=(16, 128), resample=Image.BICUBIC, lmdb_save=False):
     lr_img = resize_and_convert(img, sizes[0], resample)
@@ -51,11 +61,12 @@ def resize_multiple_patch_save(img, out_path, sizes=(16, 128), resample=Image.BI
     os.makedirs('{}/hr_{}/{}'.format(out_path, sizes[1], img_file), exist_ok=True)
     os.makedirs('{}/sr_{}_{}/{}'.format(out_path, sizes[0], sizes[1], img_file), exist_ok=True)
 
+    img = padding_square(img, sizes)
     H, W= img.shape
     nH = int(H/sizes[1])
     nW = int(W/sizes[1])
-    
     imgs = [img[sizes[1]*x:sizes[1]*(x+1), sizes[1]*y:sizes[1]*(y+1)] for x in range(nH) for y in range(nW)]
+
 
     for i, img in enumerate(imgs):
         pil_image = Image.fromarray(img)
@@ -175,7 +186,7 @@ if __name__ == '__main__':
     parser.add_argument('--out', '-o', type=str,
                         default='./dataset/microCT_slices_1794')
 
-    parser.add_argument('--size', type=str, default='16, 64')
+    parser.add_argument('--size', type=str, default='64, 256')
     parser.add_argument('--n_worker', type=int, default=1)
     parser.add_argument('--resample', type=str, default='bicubic')
     # default save in png format

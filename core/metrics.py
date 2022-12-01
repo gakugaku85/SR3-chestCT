@@ -74,9 +74,13 @@ def save_mhd(img, img_path):
     img = sitk.GetImageFromArray(img)
     sitk.WriteImage(img, img_path)
 
-def concatImage(images, h, w):
-    nH = int(h/64)
-    nW = int(w/64)
+def concatImage(images, h, w, hr_size):
+    while h % hr_size != 0:
+        h=h+1
+    while w % hr_size != 0:
+        w=w+1
+    nH = int(h/hr_size)
+    nW = int(w/hr_size)
     image_h = []
     for i in range(nW):
         image_h.append(cv2.hconcat(images[i*nH:(i+1)*nH]))

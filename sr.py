@@ -80,8 +80,8 @@ if __name__ == "__main__":
         while current_step < n_iter:
             current_epoch += 1
             for _, train_data in tqdm(enumerate(train_loader), desc='training step', total=len(train_loader)):
-                # result_path = '{}/{}'.format(opt['path']['results'], current_step)
-                # os.makedirs(result_path+"iter", exist_ok=True)
+                result_path = '{}/train'.format(opt['path']['results'])
+                os.makedirs(result_path, exist_ok=True)
 
                 current_step += 1
                 # if current_step > n_iter:
@@ -90,23 +90,23 @@ if __name__ == "__main__":
                 diffusion.optimize_parameters()
                 # log
                 if current_step % opt['train']['print_freq'] == 0:
+                    train_out = diffusion.print_train_result()
                     logs = diffusion.get_current_log()
                     message = '<epoch:{:3d}, iter:{:8,d}> '.format(
                         current_epoch, current_step)
                     for k, v in logs.items():
                         message += '{:s}: {:.4e} '.format(k, v)
                         tb_logger.add_scalar(k, v, current_step)
-                    logger.info(message)
+                    # logger.info(message)
 
-                    # visuals = diffusion.get_current_visuals()
-                    # sr_img = Metrics.tensor2mhd(visuals['SR'])  # uint8
+                    train_img = Metrics.tensor2mhd(train_out)  # uint8
 
-                    # Metrics.save_mhd(sr_img, '{}iter/{}_sr.mhd'.format(result_path, current_step))
-                    # if wandb_logger:
-                    #     wandb_logger.log_image(
-                    #         f'iter_{current_step}', 
-                    #         sr_img
-                    #     )
+                    Metrics.save_mhd(train_img, '{}/{}_sr.mhd'.format(result_path, current_step))
+                    if wandb_logger:
+                        wandb_logger.log_image(
+                            f'iter_{current_step}', 
+                            train_img
+                        )
 
                     if wandb_logger:
                         wandb_logger.log_metrics(logs)
@@ -134,10 +134,10 @@ if __name__ == "__main__":
                             hr_imgs.append(Metrics.tensor2mhd(visuals['HR']))  # uint8
                             lr_imgs.append(Metrics.tensor2mhd(visuals['LR']))  # uint8
                             fake_imgs.append(Metrics.tensor2mhd(visuals['INF']))  # uint8
-                        sr_img = Metrics.concatImage(sr_imgs, opt['datasets']['val']['image_h'], opt['datasets']['val']['image_w'])
-                        hr_img = Metrics.concatImage(hr_imgs, opt['datasets']['val']['image_h'], opt['datasets']['val']['image_w'])
-                        lr_img = Metrics.concatImage(lr_imgs, opt['datasets']['val']['image_h'], opt['datasets']['val']['image_w'])
-                        fake_img = Metrics.concatImage(fake_imgs, opt['datasets']['val']['image_h'], opt['datasets']['val']['image_w'])
+                        sr_img = Metrics.concatImage(sr_imgs, opt['datasets']['val']['image_h'], opt['datasets']['val']['image_w'], opt['datasets']['val']['r_resolution'])
+                        hr_img = Metrics.concatImage(hr_imgs, opt['datasets']['val']['image_h'], opt['datasets']['val']['image_w'], opt['datasets']['val']['r_resolution'])
+                        lr_img = Metrics.concatImage(lr_imgs, opt['datasets']['val']['image_h'], opt['datasets']['val']['image_w'], opt['datasets']['val']['r_resolution'])
+                        fake_img = Metrics.concatImage(fake_imgs, opt['datasets']['val']['image_h'], opt['datasets']['val']['image_w'], opt['datasets']['val']['r_resolution'])
                         idx += 1
                             # generation
                         Metrics.save_mhd(
@@ -177,7 +177,10 @@ if __name__ == "__main__":
                     tb_logger.add_scalar('psnr', avg_psnr, current_step)
 
                     if wandb_logger:
-                        wandb_logger.log_metrics(avg_psnr)
+                        wandb_logger.log_metrics({
+                            'validation/val_psnr': avg_psnr,
+                            'validation/val_step': val_step
+                        })
                         val_step += 1
 
                 if current_step % opt['train']['save_checkpoint_freq'] == 0:
