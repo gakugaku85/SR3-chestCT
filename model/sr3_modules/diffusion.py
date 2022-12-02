@@ -242,7 +242,7 @@ class GaussianDiffusion(nn.Module):
             x_recon = self.denoise_fn(
                 torch.cat([x_in['SR'], x_noisy], dim=1), continuous_sqrt_alpha_cumprod)
 
-        self.train_result = torch.cat([x_in['HR'][0], x_noisy[0]-x_recon[0]], dim=2)
+        self.train_result = torch.cat([x_in['HR'][0], x_noisy[0]-x_recon[0], x_noisy[0], x_recon[0]], dim=2)
 
         loss = self.loss_func(noise, x_recon)
         return loss

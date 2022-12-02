@@ -18,7 +18,7 @@ from glob import glob
 
 
 def resize_and_convert(img, size, resample):
-    if(img.size[0] != size):
+    if(img.size != size):
         img = trans_fn.resize(img, size, resample)
         img = trans_fn.center_crop(img, size)
     return img
@@ -52,34 +52,53 @@ def resize_multiple(img, sizes=(16, 128), resample=Image.BICUBIC, lmdb_save=Fals
 
     return [lr_img, hr_img, sr_img]
 
-def resize_multiple_patch_save(img, out_path, sizes=(16, 128), resample=Image.BICUBIC, img_file="", lmdb_save=False):
+def resize_multiple_patch_save(img, out_path, sizes=(16, 128), mhd_sizes=(), resample=Image.BICUBIC, img_file="", lmdb_save=False):
     os.makedirs(out_path, exist_ok=True)
-    os.makedirs('{}/nonzero/lr_{}/{}'.format(out_path, sizes[0], img_file), exist_ok=True)
-    os.makedirs('{}/nonzero/hr_{}/{}'.format(out_path, sizes[1], img_file), exist_ok=True)
-    os.makedirs('{}/nonzero/sr_{}_{}/{}'.format(out_path, sizes[0], sizes[1], img_file), exist_ok=True)
-    os.makedirs('{}/lr_{}/{}'.format(out_path, sizes[0], img_file), exist_ok=True)
-    os.makedirs('{}/hr_{}/{}'.format(out_path, sizes[1], img_file), exist_ok=True)
-    os.makedirs('{}/sr_{}_{}/{}'.format(out_path, sizes[0], sizes[1], img_file), exist_ok=True)
-
-    img = padding_square(img, sizes)
-    H, W= img.shape
-    nH = int(H/sizes[1])
-    nW = int(W/sizes[1])
-    imgs = [img[sizes[1]*x:sizes[1]*(x+1), sizes[1]*y:sizes[1]*(y+1)] for x in range(nH) for y in range(nW)]
-
-
-    for i, img in enumerate(imgs):
+    if sizes[0] == 0:
+        os.makedirs('{}/nonzero/lr_{}'.format(out_path, sizes[0]), exist_ok=True)
+        os.makedirs('{}/nonzero/hr_{}'.format(out_path, sizes[1]), exist_ok=True)
+        os.makedirs('{}/nonzero/sr_{}_{}'.format(out_path, sizes[0], sizes[1]), exist_ok=True)
+        os.makedirs('{}/lr_{}'.format(out_path, sizes[0]), exist_ok=True)
+        os.makedirs('{}/hr_{}'.format(out_path, sizes[1]), exist_ok=True)
+        os.makedirs('{}/sr_{}_{}'.format(out_path, sizes[0], sizes[1]), exist_ok=True)
         pil_image = Image.fromarray(img)
-        lr_img = resize_and_convert(pil_image, sizes[0], resample)
-        hr_img = resize_and_convert(pil_image, sizes[1], resample)
-        sr_img = resize_and_convert(lr_img, sizes[1], resample)
-        if np.all(img != 0):
-            save_mhd(lr_img, '{}/nonzero/lr_{}/{}/{}.mhd'.format(out_path, sizes[0], img_file, i))
-            save_mhd(hr_img, '{}/nonzero/hr_{}/{}/{}.mhd'.format(out_path, sizes[1], img_file, i))
-            save_mhd(sr_img, '{}/nonzero/sr_{}_{}/{}/{}.mhd'.format(out_path, sizes[0], sizes[1], img_file, i))
-        save_mhd(lr_img, '{}/lr_{}/{}/{}.mhd'.format(out_path, sizes[0], img_file, i))
-        save_mhd(hr_img, '{}/hr_{}/{}/{}.mhd'.format(out_path, sizes[1], img_file, i))
-        save_mhd(sr_img, '{}/sr_{}_{}/{}/{}.mhd'.format(out_path, sizes[0], sizes[1], img_file, i))
+        lr_img = resize_and_convert(pil_image, mhd_sizes[0], resample)
+        hr_img = resize_and_convert(pil_image, mhd_sizes[1], resample)
+        sr_img = resize_and_convert(lr_img, mhd_sizes[1], resample) 
+        # print(np.count_nonzero(img==0)/np.count_nonzero(img>=0))
+        ratio = np.count_nonzero(img==0)/np.count_nonzero(img>=0)
+        if ratio < 0.9:
+            save_mhd(lr_img, '{}/nonzero/lr_{}/{}.mhd'.format(out_path, sizes[0], img_file))
+            save_mhd(hr_img, '{}/nonzero/hr_{}/{}.mhd'.format(out_path, sizes[1], img_file))
+            save_mhd(sr_img, '{}/nonzero/sr_{}_{}/{}.mhd'.format(out_path, sizes[0], sizes[1], img_file))
+        save_mhd(lr_img, '{}/lr_{}/{}.mhd'.format(out_path, sizes[0], img_file))
+        save_mhd(hr_img, '{}/hr_{}/{}.mhd'.format(out_path, sizes[1], img_file))
+        save_mhd(sr_img, '{}/sr_{}_{}/{}.mhd'.format(out_path, sizes[0], sizes[1], img_file))
+    else:
+        os.makedirs('{}/nonzero/lr_{}/{}'.format(out_path, sizes[0], img_file), exist_ok=True)
+        os.makedirs('{}/nonzero/hr_{}/{}'.format(out_path, sizes[1], img_file), exist_ok=True)
+        os.makedirs('{}/nonzero/sr_{}_{}/{}'.format(out_path, sizes[0], sizes[1], img_file), exist_ok=True)
+        os.makedirs('{}/lr_{}/{}'.format(out_path, sizes[0], img_file), exist_ok=True)
+        os.makedirs('{}/hr_{}/{}'.format(out_path, sizes[1], img_file), exist_ok=True)
+        os.makedirs('{}/sr_{}_{}/{}'.format(out_path, sizes[0], sizes[1], img_file), exist_ok=True)
+        img = padding_square(img, sizes)
+        H, W= img.shape
+        nH = int(H/sizes[1])
+        nW = int(W/sizes[1])
+        imgs = [img[sizes[1]*x:sizes[1]*(x+1), sizes[1]*y:sizes[1]*(y+1)] for x in range(nH) for y in range(nW)]
+
+        for i, img in enumerate(imgs):
+            pil_image = Image.fromarray(img)
+            lr_img = resize_and_convert(pil_image, sizes[0], resample)
+            hr_img = resize_and_convert(pil_image, sizes[1], resample)
+            sr_img = resize_and_convert(lr_img, sizes[1], resample)
+            if np.all(img != 0):
+                save_mhd(lr_img, '{}/nonzero/lr_{}/{}/{}.mhd'.format(out_path, sizes[0], img_file, i))
+                save_mhd(hr_img, '{}/nonzero/hr_{}/{}/{}.mhd'.format(out_path, sizes[1], img_file, i))
+                save_mhd(sr_img, '{}/nonzero/sr_{}_{}/{}/{}.mhd'.format(out_path, sizes[0], sizes[1], img_file, i))
+            save_mhd(lr_img, '{}/lr_{}/{}/{}.mhd'.format(out_path, sizes[0], img_file, i))
+            save_mhd(hr_img, '{}/hr_{}/{}/{}.mhd'.format(out_path, sizes[1], img_file, i))
+            save_mhd(sr_img, '{}/sr_{}_{}/{}/{}.mhd'.format(out_path, sizes[0], sizes[1], img_file, i))
 
 def resize_worker(img_file, sizes, resample, lmdb_save=False):
     img = Image.open(img_file)
@@ -92,7 +111,10 @@ def resize_worker_mhd(img_file, sizes, resample, out_path, lmdb_save=False):
     img_mhd = sitk.ReadImage(img_file)
     nda_img_mhd = sitk.GetArrayFromImage(img_mhd)
     img_file = os.path.basename(img_file).split('.')[0]
-    resize_multiple_patch_save(nda_img_mhd, out_path, sizes=sizes, resample=resample, img_file=img_file, lmdb_save=lmdb_save)
+    h , w = nda_img_mhd.shape
+    LR_h, LR_w = h//4, w//4
+    mhd_size = [(LR_h, LR_w), (h, w)]
+    resize_multiple_patch_save(nda_img_mhd, out_path, sizes=sizes, mhd_sizes=mhd_size, resample=resample, img_file=img_file, lmdb_save=lmdb_save)
 
 class WorkingContext():
     def __init__(self, resize_fn, lmdb_save, out_path, env, sizes):
@@ -154,30 +176,8 @@ def prepare(img_path, out_path, n_worker, sizes=(16, 128), resample=Image.BICUBI
     resize_fn = partial(resize_worker_mhd, sizes=sizes, resample=resample, out_path=out_path, lmdb_save=lmdb_save)
     # files = [p for p in Path('{}'.format(img_path)).glob(f'**/*')]
     files = glob(osp.join(img_path, "*mhd"))
-
-    # if n_worker > 1:
-    #     # prepare data subsets
-
-    #     file_subsets = np.array_split(files, n_worker)
-    #     worker_threads = []
-    #     wctx = WorkingContext(resize_fn, lmdb_save, out_path, multi_env, sizes)
-
-    #     # start worker processes, monitor results
-    #     for i in range(n_worker):
-    #         proc = Process(target=prepare_process_worker, args=(wctx, file_subsets[i]))
-    #         proc.start()
-    #         worker_threads.append(proc)
-        
-    #     total_count = str(len(files))
-    #     while not all_threads_inactive(worker_threads):
-    #         print("\r{}/{} images processed".format(wctx.value(), total_count), end=" ")
-    #         time.sleep(0.1)
-
-    # else:
-    total = 0
     for file in tqdm(files):
         resize_fn(file)
-        total += 1
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -186,7 +186,7 @@ if __name__ == '__main__':
     parser.add_argument('--out', '-o', type=str,
                         default='./dataset/microCT_slices_1794')
 
-    parser.add_argument('--size', type=str, default='64, 256')
+    parser.add_argument('--size', type=str, default='0, 0')
     parser.add_argument('--n_worker', type=int, default=1)
     parser.add_argument('--resample', type=str, default='bicubic')
     # default save in png format
@@ -199,5 +199,4 @@ if __name__ == '__main__':
     sizes = [int(s.strip()) for s in args.size.split(',')]
 
     args.out = '{}_{}_{}'.format(args.out, sizes[0], sizes[1])
-    prepare(args.path, args.out, args.n_worker,
-            sizes=sizes, resample=resample, lmdb_save=args.lmdb)
+    prepare(args.path, args.out, args.n_worker, sizes=sizes, resample=resample, lmdb_save=args.lmdb)

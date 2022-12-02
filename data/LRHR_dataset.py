@@ -7,6 +7,7 @@ import data.util as Util
 import SimpleITK as sitk
 import os.path as osp
 from glob import glob
+import numpy as np
 
 
 class LRHRDataset(Dataset):
@@ -57,12 +58,12 @@ class LRHRDataset(Dataset):
                     self.data_len = min(self.data_len, self.dataset_len)
             else:#ここはtrain
                 self.sr_path = Util.get_paths_from_mhds(
-                    '{}/nonzero/sr_{}_{}'.format(dataroot, l_resolution, r_resolution))
+                    '{}/nonzero/sr_0_0'.format(dataroot))
                 self.hr_path = Util.get_paths_from_mhds(
-                    '{}/nonzero/hr_{}'.format(dataroot, r_resolution))
+                    '{}/nonzero/hr_0'.format(dataroot))
                 if self.need_LR:
                     self.lr_path = Util.get_paths_from_mhds(
-                        '{}/nonzero/lr_{}'.format(dataroot, l_resolution))
+                        '{}/nonzero/lr_0'.format(dataroot))
                 self.dataset_len = len(self.hr_path)
                 if self.data_len <= 0:
                     self.data_len = self.dataset_len
@@ -78,6 +79,7 @@ class LRHRDataset(Dataset):
     def __getitem__(self, index):
         img_HR = None
         img_LR = None
+        GT_size = self.r_res
 
         if self.datatype == 'lmdb':
             with self.env.begin(write=False) as txn:
@@ -124,12 +126,23 @@ class LRHRDataset(Dataset):
             img_SR = sitk.ReadImage(self.sr_path[index])
             nda_img_HR = sitk.GetArrayFromImage(img_HR)
             nda_img_SR = sitk.GetArrayFromImage(img_SR)
-            img_HR = Image.fromarray(nda_img_HR)
-            img_SR = Image.fromarray(nda_img_SR)
             if self.need_LR:
                 img_LR = sitk.ReadImage(self.lr_path[index])
                 nda_img_LR = sitk.GetArrayFromImage(img_LR)
                 img_LR = Image.fromarray(nda_img_LR)
+            if self.split == 'train':
+                H, W = nda_img_HR.shape
+                crop_h = crop_w = 0
+                while(1):
+                    crop_h, crop_w = choose_lung_crop(H, W, GT_size)
+                    img_HR = nda_img_HR[crop_h: crop_h + GT_size, crop_w : crop_w + GT_size]
+                    if (np.count_nonzero(img_HR==0)/np.count_nonzero(img_HR>=0) < 0.5):
+                        break
+                img_HR = nda_img_HR[crop_h: crop_h + GT_size, crop_w : crop_w + GT_size]
+                img_SR = nda_img_SR[crop_h: crop_h + GT_size, crop_w : crop_w + GT_size]
+            img_HR = Image.fromarray(img_HR)
+            img_SR = Image.fromarray(img_SR)
+
         if self.need_LR:
             [img_LR, img_SR, img_HR] = Util.transform_augment(
                 [img_LR, img_SR, img_HR], split=self.split, min_max=(0, 1))
@@ -138,3 +151,8 @@ class LRHRDataset(Dataset):
             [img_SR, img_HR] = Util.transform_augment(
                 [img_SR, img_HR], split=self.split, min_max=(0, 1))
             return {'HR': img_HR, 'SR': img_SR, 'Index': index}
+
+def choose_lung_crop(H, W, GT_size):
+    h = random.randint(0, H-GT_size)
+    w = random.randint(0, W-GT_size)
+    return h, w
