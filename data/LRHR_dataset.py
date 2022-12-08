@@ -8,6 +8,7 @@ import SimpleITK as sitk
 import os.path as osp
 from glob import glob
 import numpy as np
+import itertools
 
 
 class LRHRDataset(Dataset):
@@ -19,6 +20,9 @@ class LRHRDataset(Dataset):
         self.need_LR = need_LR
         self.split = split
 
+        self.hr_paths = []
+        self.lr_paths = [] 
+        self.sr_paths = []
         if datatype == 'lmdb':
             self.env = lmdb.open(dataroot, readonly=True, lock=False,
                                  readahead=False, meminit=False)
@@ -57,18 +61,24 @@ class LRHRDataset(Dataset):
                 else:
                     self.data_len = min(self.data_len, self.dataset_len)
             else:#ここはtrain
-                self.sr_path = Util.get_paths_from_mhds(
-                    '{}/nonzero/sr_0_0'.format(dataroot))
-                self.hr_path = Util.get_paths_from_mhds(
-                    '{}/nonzero/hr_0'.format(dataroot))
-                if self.need_LR:
-                    self.lr_path = Util.get_paths_from_mhds(
-                        '{}/nonzero/lr_0'.format(dataroot))
+                for dataroot_ in dataroot.split():
+                    self.sr_paths.append(Util.get_paths_from_mhds(
+                        '{}/nonzero/sr_0_0'.format(dataroot_)))
+                    self.hr_paths.append(Util.get_paths_from_mhds(
+                        '{}/nonzero/hr_0'.format(dataroot_)))
+                    if self.need_LR:
+                        self.lr_paths.append(Util.get_paths_from_mhds(
+                            '{}/nonzero/lr_0'.format(dataroot_)))
+                self.hr_path = list(itertools.chain.from_iterable(self.hr_paths))
+                self.sr_path = list(itertools.chain.from_iterable(self.sr_paths))
                 self.dataset_len = len(self.hr_path)
                 if self.data_len <= 0:
                     self.data_len = self.dataset_len
                 else:
                     self.data_len = min(self.data_len, self.dataset_len)
+                print("slice_length : {}".format(self.dataset_len))
+                if self.need_LR:
+                    self.lr_path = list(itertools.chain.from_iterable(self.lr_paths))
         else:
             raise NotImplementedError(
                 'data_type [{:s}] is not recognized.'.format(datatype))
@@ -136,12 +146,13 @@ class LRHRDataset(Dataset):
                 while(1):
                     crop_h, crop_w = choose_lung_crop(H, W, GT_size)
                     img_HR = nda_img_HR[crop_h: crop_h + GT_size, crop_w : crop_w + GT_size]
-                    if (np.count_nonzero(img_HR==0)/np.count_nonzero(img_HR>=0) < 0.5):
+                    # print(np.count_nonzero(img_HR==0)/np.count_nonzero(img_HR>=0))
+                    if (np.count_nonzero(img_HR==0)/np.count_nonzero(img_HR>=0) <= 0.3):#黒の割合
                         break
-                img_HR = nda_img_HR[crop_h: crop_h + GT_size, crop_w : crop_w + GT_size]
-                img_SR = nda_img_SR[crop_h: crop_h + GT_size, crop_w : crop_w + GT_size]
-            img_HR = Image.fromarray(img_HR)
-            img_SR = Image.fromarray(img_SR)
+                nda_img_HR = nda_img_HR[crop_h: crop_h + GT_size, crop_w : crop_w + GT_size]
+                nda_img_SR = nda_img_SR[crop_h: crop_h + GT_size, crop_w : crop_w + GT_size]
+            img_HR = Image.fromarray(nda_img_HR)
+            img_SR = Image.fromarray(nda_img_SR)
 
         if self.need_LR:
             [img_LR, img_SR, img_HR] = Util.transform_augment(

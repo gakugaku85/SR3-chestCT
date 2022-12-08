@@ -13,11 +13,11 @@ import numpy as np
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('-c', '--config', type=str, default='config/sr_sr3_64_512.json',
+    parser.add_argument('-c', '--config', type=str, default='config/sr3_64_256.json',
                         help='JSON file for configuration')
     parser.add_argument('-p', '--phase', type=str, choices=['train', 'val'],
                         help='Run either train(training) or val(generation)', default='train')
-    parser.add_argument('-gpu', '--gpu_ids', type=str, default="2")
+    parser.add_argument('-gpu', '--gpu_ids', type=str, default="1")
     parser.add_argument('-debug', '-d', action='store_true')
     parser.add_argument('-enable_wandb', action='store_true')
     parser.add_argument('-log_wandb_ckpt', action='store_true')
@@ -165,7 +165,7 @@ if __name__ == "__main__":
                                 np.concatenate((fake_img, sr_img, hr_img), axis=1)
                             )
 
-                    # avg_psnr = avg_psnr / idx
+                    avg_psnr = avg_psnr / idx
                     diffusion.set_new_noise_schedule(
                         opt['model']['beta_schedule']['train'], schedule_phase='train')
                     # log

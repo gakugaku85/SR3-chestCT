@@ -174,7 +174,6 @@ def save_mhd(img, img_path):
 
 def prepare(img_path, out_path, n_worker, sizes=(16, 128), resample=Image.BICUBIC, lmdb_save=False):
     resize_fn = partial(resize_worker_mhd, sizes=sizes, resample=resample, out_path=out_path, lmdb_save=lmdb_save)
-    # files = [p for p in Path('{}'.format(img_path)).glob(f'**/*')]
     files = glob(osp.join(img_path, "*mhd"))
     for file in tqdm(files):
         resize_fn(file)
