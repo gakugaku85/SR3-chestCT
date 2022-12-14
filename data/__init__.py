@@ -27,7 +27,7 @@ def create_dataset(dataset_opt, phase):
     '''create dataset'''
     mode = dataset_opt['mode']
     files = glob(osp.join(dataset_opt['dataroot']+'/hr_{}/*'.format(dataset_opt['r_resolution']))) #スライスファイルの名前取得
-    files = [file.split('/')[3] for file in files]
+    files = [file.split('/')[4] for file in files]
     from data.LRHR_dataset import LRHRDataset as D
     if phase == 'train':
         dataset = D(dataroot=dataset_opt['dataroot'],

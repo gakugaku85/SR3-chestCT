@@ -147,7 +147,7 @@ class LRHRDataset(Dataset):
                     crop_h, crop_w = choose_lung_crop(H, W, GT_size)
                     img_HR = nda_img_HR[crop_h: crop_h + GT_size, crop_w : crop_w + GT_size]
                     # print(np.count_nonzero(img_HR==0)/np.count_nonzero(img_HR>=0))
-                    if (np.count_nonzero(img_HR==0)/np.count_nonzero(img_HR>=0) <= 0.3):#黒の割合
+                    if (np.count_nonzero(img_HR==0)/np.count_nonzero(img_HR>=0) <= 0.4):#黒の割合
                         break
                 nda_img_HR = nda_img_HR[crop_h: crop_h + GT_size, crop_w : crop_w + GT_size]
                 nda_img_SR = nda_img_SR[crop_h: crop_h + GT_size, crop_w : crop_w + GT_size]

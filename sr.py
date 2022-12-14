@@ -46,6 +46,7 @@ if __name__ == "__main__":
         wandb_logger = WandbLogger(opt)
         wandb.define_metric('validation/val_step')
         wandb.define_metric('epoch')
+        wandb.define_metric("iter/*", step_metric="current_step")
         wandb.define_metric("validation/*", step_metric="val_step")
         val_step = 0
     else:
@@ -90,26 +91,27 @@ if __name__ == "__main__":
                 diffusion.optimize_parameters()
                 # log
                 if current_step % opt['train']['print_freq'] == 0:
-                    train_out = diffusion.print_train_result()
                     logs = diffusion.get_current_log()
                     message = '<epoch:{:3d}, iter:{:8,d}> '.format(
                         current_epoch, current_step)
                     for k, v in logs.items():
                         message += '{:s}: {:.4e} '.format(k, v)
                         tb_logger.add_scalar(k, v, current_step)
+                    if wandb_logger:
+                        wandb_logger.log_metrics(logs)
                     # logger.info(message)
 
+                if current_step % opt['train']['train_print_freq'] == 0:
+                    diffusion.test(continous=False)
+                    visuals = diffusion.get_current_visuals()
+                    train_out = torch.cat([visuals['SR'], visuals['HR'][opt['datasets']['train']['batch_size']-1], visuals['INF'][opt['datasets']['train']['batch_size']-1]], dim=2)
                     train_img = Metrics.tensor2mhd(train_out)  # uint8
-
                     Metrics.save_mhd(train_img, '{}/{}_sr.mhd'.format(result_path, current_step))
                     if wandb_logger:
                         wandb_logger.log_image(
                             f'iter_{current_step}', 
                             train_img
                         )
-
-                    if wandb_logger:
-                        wandb_logger.log_metrics(logs)
 
                 # validation
                 if current_step % opt['train']['val_freq'] == 0:

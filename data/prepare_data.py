@@ -81,24 +81,27 @@ def resize_multiple_patch_save(img, out_path, sizes=(16, 128), mhd_sizes=(), res
         os.makedirs('{}/lr_{}/{}'.format(out_path, sizes[0], img_file), exist_ok=True)
         os.makedirs('{}/hr_{}/{}'.format(out_path, sizes[1], img_file), exist_ok=True)
         os.makedirs('{}/sr_{}_{}/{}'.format(out_path, sizes[0], sizes[1], img_file), exist_ok=True)
+
         img = padding_square(img, sizes)
+        pil_image = Image.fromarray(img)
+        lr_img = resize_and_convert(pil_image, (img.shape[0]//4, img.shape[1]//4), resample)
+        pil_hr_img = resize_and_convert(pil_image, (img.shape[0], img.shape[1]), resample)
+        pil_sr_img = resize_and_convert(lr_img, (img.shape[0], img.shape[1]), resample)
+
+        hr_img = np.array(pil_hr_img)
+        sr_img = np.array(pil_sr_img)
+
         H, W= img.shape
         nH = int(H/sizes[1])
         nW = int(W/sizes[1])
-        imgs = [img[sizes[1]*x:sizes[1]*(x+1), sizes[1]*y:sizes[1]*(y+1)] for x in range(nH) for y in range(nW)]
 
-        for i, img in enumerate(imgs):
-            pil_image = Image.fromarray(img)
-            lr_img = resize_and_convert(pil_image, sizes[0], resample)
-            hr_img = resize_and_convert(pil_image, sizes[1], resample)
-            sr_img = resize_and_convert(lr_img, sizes[1], resample)
-            if np.all(img != 0):
-                save_mhd(lr_img, '{}/nonzero/lr_{}/{}/{}.mhd'.format(out_path, sizes[0], img_file, i))
-                save_mhd(hr_img, '{}/nonzero/hr_{}/{}/{}.mhd'.format(out_path, sizes[1], img_file, i))
-                save_mhd(sr_img, '{}/nonzero/sr_{}_{}/{}/{}.mhd'.format(out_path, sizes[0], sizes[1], img_file, i))
-            save_mhd(lr_img, '{}/lr_{}/{}/{}.mhd'.format(out_path, sizes[0], img_file, i))
-            save_mhd(hr_img, '{}/hr_{}/{}/{}.mhd'.format(out_path, sizes[1], img_file, i))
-            save_mhd(sr_img, '{}/sr_{}_{}/{}/{}.mhd'.format(out_path, sizes[0], sizes[1], img_file, i))
+        hr_imgs = [Image.fromarray(hr_img[sizes[1]*x:sizes[1]*(x+1), sizes[1]*y:sizes[1]*(y+1)]) for x in range(nH) for y in range(nW)]
+        sr_imgs = [Image.fromarray(sr_img[sizes[1]*x:sizes[1]*(x+1), sizes[1]*y:sizes[1]*(y+1)]) for x in range(nH) for y in range(nW)]
+
+        for i, img in enumerate(hr_imgs):
+            save_mhd(img, '{}/hr_{}/{}/{}.mhd'.format(out_path, sizes[1], img_file, i))
+        for i, img in enumerate(sr_imgs):
+            save_mhd(img, '{}/sr_{}_{}/{}/{}.mhd'.format(out_path, sizes[0], sizes[1], img_file, i))
 
 def resize_worker(img_file, sizes, resample, lmdb_save=False):
     img = Image.open(img_file)
@@ -185,7 +188,7 @@ if __name__ == '__main__':
     parser.add_argument('--out', '-o', type=str,
                         default='./dataset/microCT_slices_1794')
 
-    parser.add_argument('--size', type=str, default='0, 0')
+    parser.add_argument('--size', type=str, default='16, 64')
     parser.add_argument('--n_worker', type=int, default=1)
     parser.add_argument('--resample', type=str, default='bicubic')
     # default save in png format
