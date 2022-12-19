@@ -82,6 +82,7 @@
     "train": {
         "n_iter": 100000,
         "val_freq": 1000,
+        "train_print_freq": 200,
         "save_checkpoint_freq": 1000,
         "print_freq": 50,
         "optimizer": {

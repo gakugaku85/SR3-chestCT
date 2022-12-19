@@ -44,6 +44,7 @@ class DDPM(BaseModel):
 
     def feed_data(self, data):
         self.data = self.set_device(data)
+        self.SR = data['HR']
 
     def optimize_parameters(self):
         self.optG.zero_grad()

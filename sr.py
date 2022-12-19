@@ -17,7 +17,7 @@ if __name__ == "__main__":
                         help='JSON file for configuration')
     parser.add_argument('-p', '--phase', type=str, choices=['train', 'val'],
                         help='Run either train(training) or val(generation)', default='train')
-    parser.add_argument('-gpu', '--gpu_ids', type=str, default="1")
+    parser.add_argument('-gpu', '--gpu_ids', type=str, default="0")
     parser.add_argument('-debug', '-d', action='store_true')
     parser.add_argument('-enable_wandb', action='store_true')
     parser.add_argument('-log_wandb_ckpt', action='store_true')
@@ -101,7 +101,8 @@ if __name__ == "__main__":
                         wandb_logger.log_metrics(logs)
                     # logger.info(message)
 
-                if current_step % opt['train']['train_print_freq'] == 0:
+                if current_step % opt['train']['train_print_freq'] == 0 and current_step > 10000:
+                    print("train test")
                     diffusion.test(continous=False)
                     visuals = diffusion.get_current_visuals()
                     train_out = torch.cat([visuals['SR'], visuals['HR'][opt['datasets']['train']['batch_size']-1], visuals['INF'][opt['datasets']['train']['batch_size']-1]], dim=2)
@@ -128,17 +129,18 @@ if __name__ == "__main__":
                         hr_imgs = []
                         lr_imgs = []
                         fake_imgs = []
-                        for _, val_data in tqdm(enumerate(val_loader), desc='sampling loop time step', total=len(val_loader)):
+                        for _, val_data in tqdm(enumerate(val_loader), desc='validation loop time step', total=len(val_loader)):
                             diffusion.feed_data(val_data)
-                            diffusion.test(continous=False)
+                            if torch.numel(val_data['HR'][0][0]) != torch.numel(val_data['HR'][0][0])-torch.count_nonzero(val_data['HR'][0][0]).item():
+                                diffusion.test(continous=False)
                             visuals = diffusion.get_current_visuals()
                             sr_imgs.append(Metrics.tensor2mhd(visuals['SR']))  # uint8
                             hr_imgs.append(Metrics.tensor2mhd(visuals['HR']))  # uint8
-                            lr_imgs.append(Metrics.tensor2mhd(visuals['LR']))  # uint8
+                            # lr_imgs.append(Metrics.tensor2mhd(visuals['LR']))  # uint8
                             fake_imgs.append(Metrics.tensor2mhd(visuals['INF']))  # uint8
                         sr_img = Metrics.concatImage(sr_imgs, opt['datasets']['val']['image_h'], opt['datasets']['val']['image_w'], opt['datasets']['val']['r_resolution'])
                         hr_img = Metrics.concatImage(hr_imgs, opt['datasets']['val']['image_h'], opt['datasets']['val']['image_w'], opt['datasets']['val']['r_resolution'])
-                        lr_img = Metrics.concatImage(lr_imgs, opt['datasets']['val']['image_h'], opt['datasets']['val']['image_w'], opt['datasets']['val']['r_resolution'])
+                        # lr_img = Metrics.concatImage(lr_imgs, opt['datasets']['val']['image_h'], opt['datasets']['val']['image_w'], opt['datasets']['val']['r_resolution'])
                         fake_img = Metrics.concatImage(fake_imgs, opt['datasets']['val']['image_h'], opt['datasets']['val']['image_w'], opt['datasets']['val']['r_resolution'])
                         idx += 1
                             # generation
@@ -146,8 +148,8 @@ if __name__ == "__main__":
                             hr_img, '{}/{}_{}_hr.mhd'.format(result_path, current_step, idx))
                         Metrics.save_mhd(
                             sr_img, '{}/{}_{}_sr.mhd'.format(result_path, current_step, idx))
-                        Metrics.save_mhd(
-                            lr_img, '{}/{}_{}_lr.mhd'.format(result_path, current_step, idx))
+                        # Metrics.save_mhd(
+                        #     lr_img, '{}/{}_{}_lr.mhd'.format(result_path, current_step, idx))
                         Metrics.save_mhd(
                             fake_img, '{}/{}_{}_inf.mhd'.format(result_path, current_step, idx))
                         # tb_logger.add_image(

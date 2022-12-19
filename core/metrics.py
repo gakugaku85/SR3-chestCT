@@ -75,16 +75,19 @@ def save_mhd(img, img_path):
     sitk.WriteImage(img, img_path)
 
 def concatImage(images, h, w, hr_size):
-    while h % hr_size != 0:
-        h=h+1
-    while w % hr_size != 0:
-        w=w+1
-    nH = int(h/hr_size)
-    nW = int(w/hr_size)
+    H = h
+    W = w
+    while H % hr_size != 0:
+        H=H+1
+    while W % hr_size != 0:
+        W=W+1
+    nH = int(H/hr_size)
+    nW = int(W/hr_size)
     image_h = []
     for i in range(nW):
         image_h.append(cv2.hconcat(images[i*nH:(i+1)*nH]))
     image = cv2.vconcat(image_h)
+    image = image[:w, :h]
     return image
 
 def calculate_psnr(img1, img2):
