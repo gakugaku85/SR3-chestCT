@@ -166,7 +166,7 @@ class GaussianDiffusion(nn.Module):
             x_start=x_recon, x_t=x, t=t)
         return model_mean, posterior_log_variance
 
-    @torch.no_grad()
+    # @torch.no_grad()
     def p_sample(self, x, t, clip_denoised=True, condition_x=None):
         model_mean, model_log_variance = self.p_mean_variance(
             x=x, t=t, clip_denoised=clip_denoised, condition_x=condition_x)
@@ -242,9 +242,22 @@ class GaussianDiffusion(nn.Module):
             x_recon = self.denoise_fn(
                 torch.cat([x_in['SR'], x_noisy], dim=1), continuous_sqrt_alpha_cumprod)
 
-        self.train_result = torch.cat([x_in['HR'][0], x_in['SR'][0], x_noisy[0]-noise[0] , x_noisy[0]-x_recon[0], x_recon[0]-noise[0], x_noisy[0]], dim=2)
+        my_train = self.p_sample(x=x_noisy, t=t-1, condition_x=x_in['SR'])
 
-        loss = self.loss_func(noise, x_recon)
+        hr_mean = torch.mean(input=torch.mean(input=x_start, dim=2), dim=2)
+        sr_mean = torch.mean(input=torch.mean(input=my_train, dim=2), dim=2)
+
+        # self.train_result = torch.cat([x_in['HR'][0], x_in['SR'][0], x_noisy[0]-my_train[0] , my_train[0], x_noisy[0]], dim=2)
+
+        power_loss = self.loss_func(hr_mean, sr_mean) #追加した損失
+        # power_loss = self.loss_func(x_start, my_train)
+        diff_loss = self.loss_func(noise, x_recon) #もともとの損失
+
+        # print("unnko")
+        # print(diff_loss)
+        # print(power_loss)
+        loss = diff_loss + (10000*power_loss)
+        # print(loss)
         return loss
 
     def forward(self, x, *args, **kwargs):

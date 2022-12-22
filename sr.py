@@ -77,13 +77,13 @@ if __name__ == "__main__":
     diffusion.set_new_noise_schedule(
         opt['model']['beta_schedule'][opt['phase']], schedule_phase=opt['phase'])
 
+    result_path = '{}/train'.format(opt['path']['results'])
+    os.makedirs(result_path, exist_ok=True)
+
     if opt['phase'] == 'train':
         while current_step < n_iter:
             current_epoch += 1
-            for _, train_data in tqdm(enumerate(train_loader), desc='training step', total=len(train_loader)):
-                result_path = '{}/train'.format(opt['path']['results'])
-                os.makedirs(result_path, exist_ok=True)
-
+            for _, train_data in enumerate(train_loader):
                 current_step += 1
                 if current_step > n_iter:
                     break
@@ -99,20 +99,14 @@ if __name__ == "__main__":
                         tb_logger.add_scalar(k, v, current_step)
                     if wandb_logger:
                         wandb_logger.log_metrics(logs)
-                    # logger.info(message)
+                    logger.info(message)
 
                 if current_step % opt['train']['train_print_freq'] == 0 and current_step > 10000:
-                    print("train test")
                     diffusion.test(continous=False)
                     visuals = diffusion.get_current_visuals()
-                    train_out = torch.cat([visuals['SR'], visuals['HR'][opt['datasets']['train']['batch_size']-1], visuals['INF'][opt['datasets']['train']['batch_size']-1]], dim=2)
+                    train_out = torch.cat([visuals['INF'][opt['datasets']['train']['batch_size']-1], visuals['SR'], visuals['HR'][opt['datasets']['train']['batch_size']-1]], dim=2)
                     train_img = Metrics.tensor2mhd(train_out)  # uint8
                     Metrics.save_mhd(train_img, '{}/{}_sr.mhd'.format(result_path, current_step))
-                    if wandb_logger:
-                        wandb_logger.log_image(
-                            f'iter_{current_step}', 
-                            train_img
-                        )
 
                 # validation
                 if current_step % opt['train']['val_freq'] == 0:
@@ -125,38 +119,31 @@ if __name__ == "__main__":
                         opt['model']['beta_schedule']['val'], schedule_phase='val')
 
                     for _,  val_loader in enumerate(val_loaders):
+                        val_i = 0
                         sr_imgs = []
                         hr_imgs = []
-                        lr_imgs = []
                         fake_imgs = []
                         for _, val_data in tqdm(enumerate(val_loader), desc='validation loop time step', total=len(val_loader)):
                             diffusion.feed_data(val_data)
                             if torch.numel(val_data['HR'][0][0]) != torch.numel(val_data['HR'][0][0])-torch.count_nonzero(val_data['HR'][0][0]).item():
                                 diffusion.test(continous=False)
                             visuals = diffusion.get_current_visuals()
+                            if val_i == opt['train']['val_i']:
+                                train_out = torch.cat([visuals['INF'][0], visuals['SR'], visuals['HR'][0]], dim=2)
+                                train_img = Metrics.tensor2mhd(train_out)  # uint8
+                                Metrics.save_mhd(train_img, '{}/{}_{}_patch_sr.mhd'.format(result_path, current_step, idx+1))
                             sr_imgs.append(Metrics.tensor2mhd(visuals['SR']))  # uint8
                             hr_imgs.append(Metrics.tensor2mhd(visuals['HR']))  # uint8
-                            # lr_imgs.append(Metrics.tensor2mhd(visuals['LR']))  # uint8
                             fake_imgs.append(Metrics.tensor2mhd(visuals['INF']))  # uint8
+                            val_i += 1
                         sr_img = Metrics.concatImage(sr_imgs, opt['datasets']['val']['image_h'], opt['datasets']['val']['image_w'], opt['datasets']['val']['r_resolution'])
                         hr_img = Metrics.concatImage(hr_imgs, opt['datasets']['val']['image_h'], opt['datasets']['val']['image_w'], opt['datasets']['val']['r_resolution'])
-                        # lr_img = Metrics.concatImage(lr_imgs, opt['datasets']['val']['image_h'], opt['datasets']['val']['image_w'], opt['datasets']['val']['r_resolution'])
                         fake_img = Metrics.concatImage(fake_imgs, opt['datasets']['val']['image_h'], opt['datasets']['val']['image_w'], opt['datasets']['val']['r_resolution'])
                         idx += 1
-                            # generation
-                        Metrics.save_mhd(
-                            hr_img, '{}/{}_{}_hr.mhd'.format(result_path, current_step, idx))
-                        Metrics.save_mhd(
-                            sr_img, '{}/{}_{}_sr.mhd'.format(result_path, current_step, idx))
-                        # Metrics.save_mhd(
-                        #     lr_img, '{}/{}_{}_lr.mhd'.format(result_path, current_step, idx))
-                        Metrics.save_mhd(
-                            fake_img, '{}/{}_{}_inf.mhd'.format(result_path, current_step, idx))
-                        # tb_logger.add_image(
-                        #     'Iter_{}'.format(current_step),
-                        #     np.transpose(np.concatenate(
-                        #         (fake_img, sr_img, hr_img), axis=1), [2, 0, 1]),
-                        #     idx)
+                        # save
+                        Metrics.save_mhd(hr_img, '{}/{}_{}_hr.mhd'.format(result_path, current_step, idx))
+                        Metrics.save_mhd(sr_img, '{}/{}_{}_sr.mhd'.format(result_path, current_step, idx))
+                        Metrics.save_mhd(fake_img, '{}/{}_{}_inf.mhd'.format(result_path, current_step, idx))
                         avg_psnr += Metrics.calculate_psnr(sr_img, hr_img)
 
                         logs = diffusion.get_current_log()
