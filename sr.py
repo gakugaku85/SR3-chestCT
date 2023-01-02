@@ -8,8 +8,10 @@ import core.metrics as Metrics
 from core.wandb_logger import WandbLogger
 from tensorboardX import SummaryWriter
 from tqdm import tqdm
+from natsort import natsorted
 import os
 import numpy as np
+import PIL.Image as Image
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -80,6 +82,10 @@ if __name__ == "__main__":
     result_path = '{}/train'.format(opt['path']['results'])
     os.makedirs(result_path, exist_ok=True)
 
+    mask_paths = []
+    for mask_filename in natsorted(os.listdir(os.path.abspath(opt['datasets']['val']['maskroot']))):
+            mask_paths.append(mask_filename)
+
     if opt['phase'] == 'train':
         while current_step < n_iter:
             current_epoch += 1
@@ -101,7 +107,7 @@ if __name__ == "__main__":
                         wandb_logger.log_metrics(logs)
                     logger.info(message)
 
-                if current_step % opt['train']['train_print_freq'] == 0 and current_step > 10000:
+                if current_step % opt['train']['train_print_freq'] == 0 and current_step > 1000000:
                     diffusion.test(continous=False)
                     visuals = diffusion.get_current_visuals()
                     train_out = torch.cat([visuals['INF'][opt['datasets']['train']['batch_size']-1], visuals['SR'], visuals['HR'][opt['datasets']['train']['batch_size']-1]], dim=2)
@@ -111,6 +117,7 @@ if __name__ == "__main__":
                 # validation
                 if current_step % opt['train']['val_freq'] == 0:
                     avg_psnr = 0.0
+                    avg_ssim = 0.0
                     idx = 0
                     result_path = '{}/{}'.format(opt['path']['results'], current_epoch)
                     os.makedirs(result_path, exist_ok=True)
@@ -129,9 +136,12 @@ if __name__ == "__main__":
                                 diffusion.test(continous=False)
                             visuals = diffusion.get_current_visuals()
                             if val_i == opt['train']['val_i']:
-                                train_out = torch.cat([visuals['INF'][0], visuals['SR'], visuals['HR'][0]], dim=2)
-                                train_img = Metrics.tensor2mhd(train_out)  # uint8
-                                Metrics.save_mhd(train_img, '{}/{}_{}_patch_sr.mhd'.format(result_path, current_step, idx+1))
+                                sr_patch = Metrics.tensor2mhd(visuals['SR'])
+                                hr_patch = Metrics.tensor2mhd(visuals['HR'])
+                                inf_patch = Metrics.tensor2mhd(visuals['INF'])
+                                Metrics.save_mhd(sr_patch, '{}/{}_{}_sr_patch.mhd'.format(result_path, current_step, idx+1))
+                                Metrics.save_mhd(hr_patch, '{}/{}_{}_hr_patch.mhd'.format(result_path, current_step, idx+1))
+                                Metrics.save_mhd(inf_patch, '{}/{}_{}_inf_patch.mhd'.format(result_path, current_step, idx+1))
                             sr_imgs.append(Metrics.tensor2mhd(visuals['SR']))  # uint8
                             hr_imgs.append(Metrics.tensor2mhd(visuals['HR']))  # uint8
                             fake_imgs.append(Metrics.tensor2mhd(visuals['INF']))  # uint8
@@ -144,7 +154,12 @@ if __name__ == "__main__":
                         Metrics.save_mhd(hr_img, '{}/{}_{}_hr.mhd'.format(result_path, current_step, idx))
                         Metrics.save_mhd(sr_img, '{}/{}_{}_sr.mhd'.format(result_path, current_step, idx))
                         Metrics.save_mhd(fake_img, '{}/{}_{}_inf.mhd'.format(result_path, current_step, idx))
-                        avg_psnr += Metrics.calculate_psnr(sr_img, hr_img)
+
+                        mask_path = os.path.join(opt['datasets']['val']['maskroot'], mask_paths[idx-1])
+                        mask = Image.open(mask_path).convert('L')
+                        mask = np.array(mask, dtype=np.uint8)
+                        avg_psnr += Metrics.calculate_psnr_mask(sr_img, hr_img, mask)
+                        avg_ssim += Metrics.calculate_ssim_mask(sr_img, hr_img, mask)
 
                         logs = diffusion.get_current_log()
                         if wandb_logger:
@@ -157,19 +172,21 @@ if __name__ == "__main__":
                             )
 
                     avg_psnr = avg_psnr / idx
+                    avg_ssim = avg_ssim / idx
                     diffusion.set_new_noise_schedule(
                         opt['model']['beta_schedule']['train'], schedule_phase='train')
                     # log
-                    logger.info('# Validation # PSNR: {:.4e}'.format(avg_psnr))
+                    logger.info('# Validation # PSNR: {:.4e}, # SSIM: {:.4e}'.format(avg_psnr, avg_ssim))
                     logger_val = logging.getLogger('val')  # validation logger
-                    logger_val.info('<epoch:{:3d}, iter:{:8,d}> psnr: {:.4e}'.format(
-                        current_epoch, current_step, avg_psnr))
+                    logger_val.info('<epoch:{:3d}, iter:{:8,d}> psnr: {:.4e}, ssim: {:.4e}'.format(
+                        current_epoch, current_step, avg_psnr, avg_ssim))
                     # tensorboard logger
                     tb_logger.add_scalar('psnr', avg_psnr, current_step)
 
                     if wandb_logger:
                         wandb_logger.log_metrics({
                             'validation/val_psnr': avg_psnr,
+                            'validation/val_ssim': avg_ssim,
                             'validation/val_step': val_step
                         })
                         val_step += 1

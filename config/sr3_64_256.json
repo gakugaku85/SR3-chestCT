@@ -30,6 +30,7 @@
             "mode": "HR",
             "dataroot": "../dataset/microCT_slices_1794_patch_64_256_2",
             "datatype": "mhd", //lmdb or img, path of img files
+            "maskroot": "../dataset/mask_1794_png_2",
             "l_resolution": 64,
             "r_resolution": 256,
             "use_shuffle": false,

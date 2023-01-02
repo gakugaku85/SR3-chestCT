@@ -142,7 +142,8 @@ class LRHRDataset(Dataset):
                 img_LR = Image.fromarray(nda_img_LR)
             if self.split == 'train':
                 H, W = nda_img_HR.shape
-                crop_h = crop_w = 0
+                crop_h = 0 
+                crop_w = 0
                 while(1):
                     crop_h, crop_w = choose_lung_crop(H, W, GT_size)
                     img_HR = nda_img_HR[crop_h: crop_h + GT_size, crop_w : crop_w + GT_size]

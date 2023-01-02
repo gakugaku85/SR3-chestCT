@@ -250,14 +250,9 @@ class GaussianDiffusion(nn.Module):
         # self.train_result = torch.cat([x_in['HR'][0], x_in['SR'][0], x_noisy[0]-my_train[0] , my_train[0], x_noisy[0]], dim=2)
 
         power_loss = self.loss_func(hr_mean, sr_mean) #追加した損失
-        # power_loss = self.loss_func(x_start, my_train)
         diff_loss = self.loss_func(noise, x_recon) #もともとの損失
 
-        # print("unnko")
-        # print(diff_loss)
-        # print(power_loss)
         loss = diff_loss + (10000*power_loss)
-        # print(loss)
         return loss
 
     def forward(self, x, *args, **kwargs):
