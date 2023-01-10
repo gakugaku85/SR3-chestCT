@@ -55,13 +55,20 @@ class DDPM(BaseModel):
         l_pix.backward()
         self.optG.step()
 
+        diff_loss, power_loss = self.netG.get_each_loss()
+
         # set log
         self.log_dict['l_pix'] = l_pix.item()
+        self.log_dict['diff_loss'] = diff_loss.item()
+        self.log_dict['power_loss'] = power_loss.item()
 
     def print_train_result(self):
-        train_out = self.netG.print_train_result()
-        out = train_out.detach().float().cpu()
-
+        if isinstance(self.netG, nn.DataParallel):
+            train_out = self.netG.module.print_train_result()
+            out = train_out.detach().float().cpu()
+        else:
+            train_out = self.netG.print_train_result()
+            out = train_out.detach().float().cpu()
         return out 
 
     def test(self, continous=False):

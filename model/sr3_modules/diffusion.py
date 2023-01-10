@@ -6,6 +6,7 @@ from inspect import isfunction
 from functools import partial
 import numpy as np
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 
 def _warmup_beta(linear_start, linear_end, n_timestep, warmup_frac):
@@ -102,8 +103,12 @@ class GaussianDiffusion(nn.Module):
         alphas = 1. - betas
         alphas_cumprod = np.cumprod(alphas, axis=0)
         alphas_cumprod_prev = np.append(1., alphas_cumprod[:-1])
-        self.sqrt_alphas_cumprod_prev = np.sqrt(
-            np.append(1., alphas_cumprod))
+        self.sqrt_alphas_cumprod_prev = np.sqrt(np.append(1., alphas_cumprod))
+        plt.plot(betas)
+        plt.ylabel('betas')
+        plt.xlabel('timesteps')
+        plt.savefig('./betas.png')
+        plt.show()
 
         timesteps, = betas.shape
         self.num_timesteps = int(timesteps)
@@ -125,11 +130,9 @@ class GaussianDiffusion(nn.Module):
                              to_torch(np.sqrt(1. / alphas_cumprod - 1)))
 
         # calculations for posterior q(x_{t-1} | x_t, x_0)
-        posterior_variance = betas * \
-            (1. - alphas_cumprod_prev) / (1. - alphas_cumprod)
+        posterior_variance = betas * (1. - alphas_cumprod_prev) / (1. - alphas_cumprod)
         # above: equal to 1. / (1. / (1. - alpha_cumprod_tm1) + alpha_t / beta_t)
-        self.register_buffer('posterior_variance',
-                             to_torch(posterior_variance))
+        self.register_buffer('posterior_variance', to_torch(posterior_variance))
         # below: log calculation clipped because the posterior variance is 0 at the beginning of the diffusion chain
         self.register_buffer('posterior_log_variance_clipped', to_torch(
             np.log(np.maximum(posterior_variance, 1e-20))))
@@ -247,12 +250,10 @@ class GaussianDiffusion(nn.Module):
         hr_mean = torch.mean(input=torch.mean(input=x_start, dim=2), dim=2)
         sr_mean = torch.mean(input=torch.mean(input=my_train, dim=2), dim=2)
 
-        # self.train_result = torch.cat([x_in['HR'][0], x_in['SR'][0], x_noisy[0]-my_train[0] , my_train[0], x_noisy[0]], dim=2)
+        self.power_loss = self.loss_func(hr_mean, sr_mean) #追加した損失
+        self.diff_loss = self.loss_func(noise, x_recon) #もともとの損失
 
-        power_loss = self.loss_func(hr_mean, sr_mean) #追加した損失
-        diff_loss = self.loss_func(noise, x_recon) #もともとの損失
-
-        loss = diff_loss + (10000*power_loss)
+        loss = self.diff_loss + (10000*self.power_loss)
         return loss
 
     def forward(self, x, *args, **kwargs):
@@ -260,3 +261,6 @@ class GaussianDiffusion(nn.Module):
 
     def print_train_result(self):
         return self.train_result
+
+    def get_each_loss(self):
+        return self.diff_loss, self.power_loss 
