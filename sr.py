@@ -107,7 +107,7 @@ if __name__ == "__main__":
                         wandb_logger.log_metrics(logs)
                     logger.info(message)
 
-                if current_step % opt['train']['train_print_freq'] == 0 and current_step > 1000000:
+                if current_step % opt['train']['train_print_freq'] == 0 and current_step > 100000:
                     diffusion.test(continous=False)
                     visuals = diffusion.get_current_visuals()
                     train_out = torch.cat([visuals['INF'][opt['datasets']['train']['batch_size']-1], visuals['SR'], visuals['HR'][opt['datasets']['train']['batch_size']-1]], dim=2)
@@ -115,7 +115,7 @@ if __name__ == "__main__":
                     Metrics.save_mhd(train_img, '{}/{}_sr.mhd'.format(result_path, current_step))
 
                 # validation
-                if current_step % opt['train']['val_freq'] == 0:
+                if current_step % opt['train']['val_freq'] == 0 and current_step > 5000:
                     avg_psnr = 0.0
                     avg_ssim = 0.0
                     idx = 0
@@ -136,12 +136,9 @@ if __name__ == "__main__":
                                 diffusion.test(continous=False)
                             visuals = diffusion.get_current_visuals()
                             if val_i == opt['train']['val_i']:
-                                sr_patch = Metrics.tensor2mhd(visuals['SR'])
-                                hr_patch = Metrics.tensor2mhd(visuals['HR'])
-                                inf_patch = Metrics.tensor2mhd(visuals['INF'])
-                                Metrics.save_mhd(sr_patch, '{}/{}_{}_sr_patch.mhd'.format(result_path, current_step, idx+1))
-                                Metrics.save_mhd(hr_patch, '{}/{}_{}_hr_patch.mhd'.format(result_path, current_step, idx+1))
-                                Metrics.save_mhd(inf_patch, '{}/{}_{}_inf_patch.mhd'.format(result_path, current_step, idx+1))
+                                val_out = torch.cat([visuals['INF'][0], visuals['SR'], visuals['HR'][0]], dim=2)
+                                val_img = Metrics.tensor2mhd(val_out)  # uint8
+                                Metrics.save_mhd(val_img, '{}/{}_{}_sr.mhd'.format(result_path, current_step, idx+1))
                             sr_imgs.append(Metrics.tensor2mhd(visuals['SR']))  # uint8
                             hr_imgs.append(Metrics.tensor2mhd(visuals['HR']))  # uint8
                             fake_imgs.append(Metrics.tensor2mhd(visuals['INF']))  # uint8
@@ -158,6 +155,7 @@ if __name__ == "__main__":
                         mask_path = os.path.join(opt['datasets']['val']['maskroot'], mask_paths[idx-1])
                         mask = Image.open(mask_path).convert('L')
                         mask = np.array(mask, dtype=np.uint8)
+
                         avg_psnr += Metrics.calculate_psnr_mask(sr_img, hr_img, mask)
                         avg_ssim += Metrics.calculate_ssim_mask(sr_img, hr_img, mask)
 

@@ -10,7 +10,7 @@
         "results": "results",
         "checkpoint": "checkpoint",
         "resume_state": null
-        // "resume_state": "experiments/I830000_E32" //pretrain model or training state
+        // "resume_state": "experiments/sr_microCT_patch_230102_123053/checkpoint/I19500_E83" //pretrain model or training state
     },
     "datasets": {
         "train": {
@@ -63,13 +63,13 @@
         "beta_schedule": { // use munual beta_schedule for acceleration
             "train": {
                 "schedule": "linear",
-                "n_timestep": 2000,
+                "n_timestep": 4000,
                 "linear_start": 1e-6,
                 "linear_end": 1e-2
             },
             "val": {
                 "schedule": "linear",
-                "n_timestep": 2000,
+                "n_timestep": 4000,
                 "linear_start": 1e-6,
                 "linear_end": 1e-2
             }
@@ -81,7 +81,7 @@
         }
     },
     "train": {
-        "n_iter": 1000000,
+        "n_iter": 100000,
         "val_freq": 1500,
         "val_i": 62,
         "train_print_freq": 500,
