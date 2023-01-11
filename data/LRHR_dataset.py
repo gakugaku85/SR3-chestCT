@@ -9,6 +9,7 @@ import os.path as osp
 from glob import glob
 import numpy as np
 import itertools
+from tqdm import tqdm
 
 
 class LRHRDataset(Dataset):
@@ -23,30 +24,11 @@ class LRHRDataset(Dataset):
         self.hr_paths = []
         self.lr_paths = [] 
         self.sr_paths = []
-        if datatype == 'lmdb':
-            self.env = lmdb.open(dataroot, readonly=True, lock=False,
-                                 readahead=False, meminit=False)
-            # init the datalen
-            with self.env.begin(write=False) as txn:
-                self.dataset_len = int(txn.get("length".encode("utf-8")))
-            if self.data_len <= 0:
-                self.data_len = self.dataset_len
-            else:
-                self.data_len = min(self.data_len, self.dataset_len)
-        elif datatype == 'img':
-            self.sr_path = Util.get_paths_from_images(
-                '{}/sr_{}_{}'.format(dataroot, l_resolution, r_resolution))
-            self.hr_path = Util.get_paths_from_images(
-                '{}/hr_{}'.format(dataroot, r_resolution))
-            if self.need_LR:
-                self.lr_path = Util.get_paths_from_images(
-                    '{}/lr_{}'.format(dataroot, l_resolution))
-            self.dataset_len = len(self.hr_path)
-            if self.data_len <= 0:
-                self.data_len = self.dataset_len
-            else:
-                self.data_len = min(self.data_len, self.dataset_len)
-        elif datatype == 'mhd':
+
+        self.hr_imgs = []
+        self.lr_imgs = [] 
+        self.sr_imgs = []
+        if datatype == 'mhd':
             if split == 'val':
                 self.sr_path = Util.get_paths_from_mhds(
                     '{}/sr_{}_{}/{}'.format(dataroot, l_resolution, r_resolution, slice_file))
@@ -76,12 +58,21 @@ class LRHRDataset(Dataset):
                     self.data_len = self.dataset_len
                 else:
                     self.data_len = min(self.data_len, self.dataset_len)
-                print("slice_length : {}".format(self.dataset_len))
+                    self.hr_path = self.hr_path[:self.data_len]
+                    self.sr_path = self.sr_path[:self.data_len]
+                print("slice_length : {}".format(self.data_len))
                 if self.need_LR:
                     self.lr_path = list(itertools.chain.from_iterable(self.lr_paths))
         else:
             raise NotImplementedError(
                 'data_type [{:s}] is not recognized.'.format(datatype))
+        for hr, sr in tqdm(zip(self.hr_path, self.sr_path), desc='create datasets', total=len(self.hr_path)):
+            img_HR = sitk.ReadImage(hr)
+            img_SR = sitk.ReadImage(sr)
+            nda_img_HR = sitk.GetArrayFromImage(img_HR)
+            nda_img_SR = sitk.GetArrayFromImage(img_SR)
+            self.hr_imgs.append(nda_img_HR)
+            self.sr_imgs.append(nda_img_SR)
 
     def __len__(self):
         return self.data_len
@@ -91,55 +82,13 @@ class LRHRDataset(Dataset):
         img_LR = None
         GT_size = self.r_res
 
-        if self.datatype == 'lmdb':
-            with self.env.begin(write=False) as txn:
-                hr_img_bytes = txn.get(
-                    'hr_{}_{}'.format(
-                        self.r_res, str(index).zfill(5)).encode('utf-8')
-                )
-                sr_img_bytes = txn.get(
-                    'sr_{}_{}_{}'.format(
-                        self.l_res, self.r_res, str(index).zfill(5)).encode('utf-8')
-                )
-                if self.need_LR:
-                    lr_img_bytes = txn.get(
-                        'lr_{}_{}'.format(
-                            self.l_res, str(index).zfill(5)).encode('utf-8')
-                    )
-                # skip the invalid index
-                while (hr_img_bytes is None) or (sr_img_bytes is None):
-                    new_index = random.randint(0, self.data_len-1)
-                    hr_img_bytes = txn.get(
-                        'hr_{}_{}'.format(
-                            self.r_res, str(new_index).zfill(5)).encode('utf-8')
-                    )
-                    sr_img_bytes = txn.get(
-                        'sr_{}_{}_{}'.format(
-                            self.l_res, self.r_res, str(new_index).zfill(5)).encode('utf-8')
-                    )
-                    if self.need_LR:
-                        lr_img_bytes = txn.get(
-                            'lr_{}_{}'.format(
-                                self.l_res, str(new_index).zfill(5)).encode('utf-8')
-                        )
-                img_HR = Image.open(BytesIO(hr_img_bytes)).convert("RGB")
-                img_SR = Image.open(BytesIO(sr_img_bytes)).convert("RGB")
-                if self.need_LR:
-                    img_LR = Image.open(BytesIO(lr_img_bytes)).convert("RGB")
-        elif self.datatype == 'img':
-            img_HR = Image.open(self.hr_path[index]).convert("RGB")
-            img_SR = Image.open(self.sr_path[index]).convert("RGB")
-            if self.need_LR:
-                img_LR = Image.open(self.lr_path[index]).convert("RGB")
-        elif self.datatype == 'mhd':
-            img_HR = sitk.ReadImage(self.hr_path[index])
-            img_SR = sitk.ReadImage(self.sr_path[index])
-            nda_img_HR = sitk.GetArrayFromImage(img_HR)
-            nda_img_SR = sitk.GetArrayFromImage(img_SR)
-            if self.need_LR:
-                img_LR = sitk.ReadImage(self.lr_path[index])
-                nda_img_LR = sitk.GetArrayFromImage(img_LR)
-                img_LR = Image.fromarray(nda_img_LR)
+        if self.datatype == 'mhd':
+            nda_img_HR = self.hr_imgs[index]
+            nda_img_SR = self.sr_imgs[index]
+            # if self.need_LR:
+            #     img_LR = sitk.ReadImage(self.lr_path[index])
+            #     nda_img_LR = sitk.GetArrayFromImage(img_LR)
+            #     img_LR = Image.fromarray(nda_img_LR)
             if self.split == 'train':
                 H, W = nda_img_HR.shape
                 crop_h = 0 
@@ -148,7 +97,7 @@ class LRHRDataset(Dataset):
                     crop_h, crop_w = choose_lung_crop(H, W, GT_size)
                     img_HR = nda_img_HR[crop_h: crop_h + GT_size, crop_w : crop_w + GT_size]
                     # print(np.count_nonzero(img_HR==0)/np.count_nonzero(img_HR>=0))
-                    if (np.count_nonzero(img_HR==0)/np.count_nonzero(img_HR>=0) <= 0.4):#黒の割合
+                    if (np.count_nonzero(img_HR==0)/np.count_nonzero(img_HR>=0) <= 0.6):#黒の割合
                         break
                 nda_img_HR = nda_img_HR[crop_h: crop_h + GT_size, crop_w : crop_w + GT_size]
                 nda_img_SR = nda_img_SR[crop_h: crop_h + GT_size, crop_w : crop_w + GT_size]

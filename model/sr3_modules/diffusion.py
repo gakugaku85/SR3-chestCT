@@ -104,11 +104,10 @@ class GaussianDiffusion(nn.Module):
         alphas_cumprod = np.cumprod(alphas, axis=0)
         alphas_cumprod_prev = np.append(1., alphas_cumprod[:-1])
         self.sqrt_alphas_cumprod_prev = np.sqrt(np.append(1., alphas_cumprod))
-        plt.plot(betas)
-        plt.ylabel('betas')
-        plt.xlabel('timesteps')
-        plt.savefig('./betas.png')
-        plt.show()
+        # plt.plot(betas)
+        # plt.ylabel('betas')
+        # plt.xlabel('timesteps')
+        # plt.savefig('./betas.png')
 
         timesteps, = betas.shape
         self.num_timesteps = int(timesteps)
@@ -169,7 +168,7 @@ class GaussianDiffusion(nn.Module):
             x_start=x_recon, x_t=x, t=t)
         return model_mean, posterior_log_variance
 
-    # @torch.no_grad()
+    @torch.no_grad()
     def p_sample(self, x, t, clip_denoised=True, condition_x=None):
         model_mean, model_log_variance = self.p_mean_variance(
             x=x, t=t, clip_denoised=clip_denoised, condition_x=condition_x)
@@ -232,8 +231,7 @@ class GaussianDiffusion(nn.Module):
                 size=b
             )
         ).to(x_start.device)
-        continuous_sqrt_alpha_cumprod = continuous_sqrt_alpha_cumprod.view(
-            b, -1)
+        continuous_sqrt_alpha_cumprod = continuous_sqrt_alpha_cumprod.view(b, -1)
 
         noise = default(noise, lambda: torch.randn_like(x_start))
         x_noisy = self.q_sample(
@@ -242,19 +240,18 @@ class GaussianDiffusion(nn.Module):
         if not self.conditional:
             x_recon = self.denoise_fn(x_noisy, continuous_sqrt_alpha_cumprod)
         else:
-            x_recon = self.denoise_fn(
-                torch.cat([x_in['SR'], x_noisy], dim=1), continuous_sqrt_alpha_cumprod)
+            x_recon = self.denoise_fn(torch.cat([x_in['SR'], x_noisy], dim=1), continuous_sqrt_alpha_cumprod)
 
-        my_train = self.p_sample(x=x_noisy, t=t-1, condition_x=x_in['SR'])
+        # my_train = self.p_sample(x=x_noisy, t=t-1, condition_x=x_in['SR'])
 
-        hr_mean = torch.mean(input=torch.mean(input=x_start, dim=2), dim=2)
-        sr_mean = torch.mean(input=torch.mean(input=my_train, dim=2), dim=2)
+        # hr_mean = torch.mean(input=torch.mean(input=x_start, dim=2), dim=2)
+        # sr_mean = torch.mean(input=torch.mean(input=my_train, dim=2), dim=2)
 
-        self.power_loss = self.loss_func(hr_mean, sr_mean) #追加した損失
+        # self.power_loss = self.loss_func(hr_mean, sr_mean) #追加した損失
         self.diff_loss = self.loss_func(noise, x_recon) #もともとの損失
 
-        loss = self.diff_loss + (10000*self.power_loss)
-        return loss
+        # loss = self.diff_loss + (10000*self.power_loss)
+        return self.diff_loss
 
     def forward(self, x, *args, **kwargs):
         return self.p_losses(x, *args, **kwargs)
@@ -263,4 +260,4 @@ class GaussianDiffusion(nn.Module):
         return self.train_result
 
     def get_each_loss(self):
-        return self.diff_loss, self.power_loss 
+        return self.diff_loss

@@ -107,15 +107,15 @@ if __name__ == "__main__":
                         wandb_logger.log_metrics(logs)
                     logger.info(message)
 
-                if current_step % opt['train']['train_print_freq'] == 0 and current_step > 100000:
+                if current_step % opt['train']['train_print_freq'] == 0 and current_step > 200:
                     diffusion.test(continous=False)
                     visuals = diffusion.get_current_visuals()
                     train_out = torch.cat([visuals['INF'][opt['datasets']['train']['batch_size']-1], visuals['SR'], visuals['HR'][opt['datasets']['train']['batch_size']-1]], dim=2)
                     train_img = Metrics.tensor2mhd(train_out)  # uint8
-                    Metrics.save_mhd(train_img, '{}/{}_sr.mhd'.format(result_path, current_step))
+                    Metrics.save_mhd(train_img, '{}/{}_train.mhd'.format(result_path, current_step))
 
                 # validation
-                if current_step % opt['train']['val_freq'] == 0 and current_step > 5000:
+                if current_step % opt['train']['val_freq'] == 0 and current_step > 200:
                     avg_psnr = 0.0
                     avg_ssim = 0.0
                     idx = 0
@@ -138,7 +138,7 @@ if __name__ == "__main__":
                             if val_i == opt['train']['val_i']:
                                 val_out = torch.cat([visuals['INF'][0], visuals['SR'], visuals['HR'][0]], dim=2)
                                 val_img = Metrics.tensor2mhd(val_out)  # uint8
-                                Metrics.save_mhd(val_img, '{}/{}_{}_sr.mhd'.format(result_path, current_step, idx+1))
+                                Metrics.save_mhd(val_img, '{}/{}_{}_val.mhd'.format(result_path, current_step, idx+1))
                             sr_imgs.append(Metrics.tensor2mhd(visuals['SR']))  # uint8
                             hr_imgs.append(Metrics.tensor2mhd(visuals['HR']))  # uint8
                             fake_imgs.append(Metrics.tensor2mhd(visuals['INF']))  # uint8
