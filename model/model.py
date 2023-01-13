@@ -133,7 +133,7 @@ class DDPM(BaseModel):
 
         logger.info(
             'Network G structure: {}, with parameters: {:,d}'.format(net_struc_str, n))
-        logger.info(s)
+        # logger.info(s)
 
     def save_network(self, epoch, iter_step):
         gen_path = os.path.join(

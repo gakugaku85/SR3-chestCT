@@ -34,9 +34,6 @@ class LRHRDataset(Dataset):
                     '{}/sr_{}_{}/{}'.format(dataroot, l_resolution, r_resolution, slice_file))
                 self.hr_path = Util.get_paths_from_mhds(
                     '{}/hr_{}/{}'.format(dataroot, r_resolution, slice_file))
-                if self.need_LR:
-                    self.lr_path = Util.get_paths_from_mhds(
-                        '{}/lr_{}/{}'.format(dataroot, l_resolution, slice_file))
                 self.dataset_len = len(self.hr_path)
                 if self.data_len <= 0:
                     self.data_len = self.dataset_len
@@ -48,9 +45,6 @@ class LRHRDataset(Dataset):
                         '{}/nonzero/sr_0_0'.format(dataroot_)))
                     self.hr_paths.append(Util.get_paths_from_mhds(
                         '{}/nonzero/hr_0'.format(dataroot_)))
-                    if self.need_LR:
-                        self.lr_paths.append(Util.get_paths_from_mhds(
-                            '{}/nonzero/lr_0'.format(dataroot_)))
                 self.hr_path = list(itertools.chain.from_iterable(self.hr_paths))
                 self.sr_path = list(itertools.chain.from_iterable(self.sr_paths))
                 self.dataset_len = len(self.hr_path)
@@ -61,8 +55,6 @@ class LRHRDataset(Dataset):
                     self.hr_path = self.hr_path[:self.data_len]
                     self.sr_path = self.sr_path[:self.data_len]
                 print("slice_length : {}".format(self.data_len))
-                if self.need_LR:
-                    self.lr_path = list(itertools.chain.from_iterable(self.lr_paths))
         else:
             raise NotImplementedError(
                 'data_type [{:s}] is not recognized.'.format(datatype))
@@ -97,7 +89,7 @@ class LRHRDataset(Dataset):
                     crop_h, crop_w = choose_lung_crop(H, W, GT_size)
                     img_HR = nda_img_HR[crop_h: crop_h + GT_size, crop_w : crop_w + GT_size]
                     # print(np.count_nonzero(img_HR==0)/np.count_nonzero(img_HR>=0))
-                    if (np.count_nonzero(img_HR==0)/np.count_nonzero(img_HR>=0) <= 0.6):#黒の割合
+                    if (np.count_nonzero(img_HR==0)/np.count_nonzero(img_HR>=0) <= 0.8):#黒の割合
                         break
                 nda_img_HR = nda_img_HR[crop_h: crop_h + GT_size, crop_w : crop_w + GT_size]
                 nda_img_SR = nda_img_SR[crop_h: crop_h + GT_size, crop_w : crop_w + GT_size]

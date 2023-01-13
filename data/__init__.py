@@ -4,6 +4,7 @@ from re import split
 import torch.utils.data
 import os.path as osp
 from glob import glob
+from natsort import natsorted
 
 
 def create_dataloader(dataset, dataset_opt, phase):
@@ -27,7 +28,8 @@ def create_dataset(dataset_opt, phase):
     '''create dataset'''
     mode = dataset_opt['mode']
     files = glob(osp.join(dataset_opt['dataroot']+'/hr_{}/*'.format(dataset_opt['r_resolution']))) #スライスファイルの名前取得
-    files = [file.split('/')[4] for file in files]
+    files = natsorted([file.split('/')[4] for file in files])
+    # print(files)
     from data.LRHR_dataset import LRHRDataset as D
     if phase == 'train':
         dataset = D(dataroot=dataset_opt['dataroot'],

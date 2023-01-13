@@ -2,7 +2,7 @@
     "name": "sr_microCT_patch",
     "phase": "train", // train or val
     "gpu_ids": [
-        0,1
+        0
     ],
     "path": { //set the path
         "log": "logs",
@@ -19,8 +19,8 @@
             "dataroot": "../dataset/microCT_slices_1784_0_0 ../dataset/microCT_slices_1802_0_0",
             "datatype": "mhd", //lmdb or img, path of img files
             "l_resolution": 64, // low resolution need to super_resolution
-            "r_resolution": 512, // high resolution
-            "batch_size": 16,
+            "r_resolution": 256, // high resolution
+            "batch_size": 4,
             "num_workers": 8,
             "use_shuffle": true,
             "data_length": -1 // -1 represents all data used in train
@@ -45,17 +45,18 @@
         "unet": {
             "in_channel": 2,
             "out_channel": 1,
-            "inner_channel": 64,
+            "inner_channel": 128,
             "norm_groups": 16,
             "channel_multiplier": [
                 1,
                 2,
                 4,
+                4,
                 8,
-                16
+                8
             ],
             "attn_res": [
-                // 16
+                16
             ],
             "res_blocks": 3,
             "dropout": 0
@@ -81,15 +82,17 @@
         }
     },
     "train": {
-        "n_iter": 50000,
-        "val_freq": 500,
+        "n_iter": 100000,
+        "val_freq": 2000,
+        "over_val": 0,
         "val_i": 13,
-        "train_print_freq": 500,
-        "save_checkpoint_freq": 500,
-        "print_freq": 25, 
+        "train_print_freq": 1000,
+        "over_train_print": 0,
+        "save_checkpoint_freq": 2000,
+        "print_freq": 50, 
         "optimizer": {
             "type": "adam",
-            "lr": 3e-6
+            "lr": 1e-4
         },
         "ema_scheduler": { // not used now
             "step_start_ema": 5000,
