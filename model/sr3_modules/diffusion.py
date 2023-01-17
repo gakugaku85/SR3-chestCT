@@ -242,15 +242,10 @@ class GaussianDiffusion(nn.Module):
         else:
             x_recon = self.denoise_fn(torch.cat([x_in['SR'], x_noisy], dim=1), continuous_sqrt_alpha_cumprod)
 
-        # my_train = self.p_sample(x=x_noisy, t=t-1, condition_x=x_in['SR'])
+        self.train_result = torch.cat([x_in['HR'][0], x_noisy[0], noise[0], x_recon[0]], dim=2)
 
-        # hr_mean = torch.mean(input=torch.mean(input=x_start, dim=2), dim=2)
-        # sr_mean = torch.mean(input=torch.mean(input=my_train, dim=2), dim=2)
-
-        # self.power_loss = self.loss_func(hr_mean, sr_mean) #追加した損失
         self.diff_loss = self.loss_func(noise, x_recon) #もともとの損失
 
-        # loss = self.diff_loss + (10000*self.power_loss)
         return self.diff_loss
 
     def forward(self, x, *args, **kwargs):

@@ -22,12 +22,9 @@ class PositionalEncoding(nn.Module):
 
     def forward(self, noise_level):
         count = self.dim // 2
-        step = torch.arange(count, dtype=noise_level.dtype,
-                            device=noise_level.device) / count
-        encoding = noise_level.unsqueeze(
-            1) * torch.exp(-math.log(1e4) * step.unsqueeze(0))
-        encoding = torch.cat(
-            [torch.sin(encoding), torch.cos(encoding)], dim=-1)
+        step = torch.arange(count, dtype=noise_level.dtype, device=noise_level.device) / count
+        encoding = noise_level.unsqueeze(1) * torch.exp(-math.log(1e4) * step.unsqueeze(0))
+        encoding = torch.cat([torch.sin(encoding), torch.cos(encoding)], dim=-1)
         return encoding
 
 
@@ -94,13 +91,11 @@ class Block(nn.Module):
 class ResnetBlock(nn.Module):
     def __init__(self, dim, dim_out, noise_level_emb_dim=None, dropout=0, use_affine_level=False, norm_groups=32):
         super().__init__()
-        self.noise_func = FeatureWiseAffine(
-            noise_level_emb_dim, dim_out, use_affine_level)
+        self.noise_func = FeatureWiseAffine(noise_level_emb_dim, dim_out, use_affine_level)
 
         self.block1 = Block(dim, dim_out, groups=norm_groups)
         self.block2 = Block(dim_out, dim_out, groups=norm_groups, dropout=dropout)
-        self.res_conv = nn.Conv2d(
-            dim, dim_out, 1) if dim != dim_out else nn.Identity()
+        self.res_conv = nn.Conv2d(dim, dim_out, 1) if dim != dim_out else nn.Identity()
 
     def forward(self, x, time_emb):
         b, c, h, w = x.shape

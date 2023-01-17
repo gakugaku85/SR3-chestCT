@@ -61,19 +61,19 @@ def parse(args):
     # debug
     if 'debug' in opt['name']:
         opt['train']['val_freq'] = 100
-        opt['train']['over_val'] = 0
-        opt['train']['over_train_print'] = 0
+        opt['train']['over_val'] = 10000
+        opt['train']['over_train_print'] = 10000
         opt['train']['print_freq'] = 50
         opt['train']['train_print_freq'] = 50
         opt['datasets']['train']['batch_size'] = 8
-        opt['model']['beta_schedule']['train']['n_timestep'] = 2
+        opt['model']['beta_schedule']['train']['n_timestep'] = 2000
         opt['model']['beta_schedule']['val']['n_timestep'] = 2
-        opt['datasets']['train']['data_length'] = 100
+        opt['datasets']['train']['data_length'] = 500
         opt['datasets']['val']['data_length'] = -1
 
     # validation in train phase
     if phase == 'train':
-        opt['datasets']['val']['data_length'] = -1
+        opt['datasets']['val']['data_length'] = 3
 
     # W&B Logging
     try:

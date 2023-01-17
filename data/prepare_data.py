@@ -184,9 +184,9 @@ def prepare(img_path, out_path, n_worker, sizes=(16, 128), resample=Image.BICUBI
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--path', '-p', type=str,
-                        default='../datasetCT/from_sam/1794_microCT/upperandlower_99point95percentile_BicubicDSby2_denoise_2dslices_masked_normalised_1794')
+                        default='../datasetCT/from_sam/1792_microCT/upperandlower_99point95percentile_BicubicDSby2_denoise_2dslices_masked_normalised_1792')
     parser.add_argument('--out', '-o', type=str,
-                        default='./dataset/microCT_slices_1794')
+                        default='../dataset/microCT_slices_1792')
 
     parser.add_argument('--size', type=str, default='16, 64')
     parser.add_argument('--n_worker', type=int, default=1)

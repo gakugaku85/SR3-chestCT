@@ -62,6 +62,7 @@ if __name__ == "__main__":
         elif phase == 'val':
             val_sets = Data.create_dataset(dataset_opt, phase)
             val_loaders = [Data.create_dataloader(val_set, dataset_opt, phase) for val_set in val_sets]
+    logger.info('Initial Dataset Finished')
 
     mask_imgs = []
     for mask_filename in natsorted(os.listdir(os.path.abspath(opt['datasets']['val']['maskroot']))):
@@ -70,8 +71,8 @@ if __name__ == "__main__":
         mask = np.array(mask, dtype=np.uint8)
         mask_imgs.append(mask)
         # print(mask_path)
+    logger.info('Initial mask Finished')
         
-    logger.info('Initial Dataset Finished')
 
     # model
     diffusion = Model.create_model(opt)
@@ -88,10 +89,10 @@ if __name__ == "__main__":
     diffusion.set_new_noise_schedule(
         opt['model']['beta_schedule'][opt['phase']], schedule_phase=opt['phase'])
 
-    result_path = '{}/train'.format(opt['path']['results'])
-    os.makedirs(result_path, exist_ok=True)
 
     if opt['phase'] == 'train':
+        result_train_path = '{}/train'.format(opt['path']['results'])
+        os.makedirs(result_train_path, exist_ok=True)
         while current_step < n_iter:
             current_epoch += 1
             for _, train_data in enumerate(train_loader):
@@ -100,10 +101,13 @@ if __name__ == "__main__":
                     break
                 diffusion.feed_data(train_data)
                 diffusion.optimize_parameters()
+                # recon_out = diffusion.print_train_result()
+                # recon_img = Metrics.tensor2img(recon_out)  # uint8
+                # Metrics.save_img(recon_img,'{}/{}_recon.png'.format(result_path, current_step) )
                 # log
                 if current_step % opt['train']['print_freq'] == 0:
                     logs = diffusion.get_current_log()
-                    message = '<epoch:{:3d}, iter:{:8,d}> '.format(
+                    message = '<epoch:{:d}, iter:{:8,d}> '.format(
                         current_epoch, current_step)
                     for k, v in logs.items():
                         message += '{:s}: {:.4e} '.format(k, v)
@@ -119,7 +123,7 @@ if __name__ == "__main__":
                     [b, c, h, w] = visuals['HR'].shape
                     train_out = torch.cat([visuals['INF'][b-1], visuals['SR'], visuals['HR'][b-1]], dim=2)
                     train_img = Metrics.tensor2mhd(train_out)  # uint8
-                    Metrics.save_mhd(train_img, '{}/{}_train.mhd'.format(result_path, current_step))
+                    Metrics.save_mhd(train_img, '{}/{}_train.mhd'.format(result_train_path, current_step))
 
                 # validation
                 if current_step % opt['train']['val_freq'] == 0 and current_step > opt['train']['over_val']:
@@ -141,6 +145,7 @@ if __name__ == "__main__":
                         sr_imgs = []
                         hr_imgs = []
                         fake_imgs = []
+                        idx += 1
                         for _, val_data in tqdm(enumerate(val_loader), desc='validation loop time step', total=len(val_loader)):
                             diffusion.feed_data(val_data)
                             if torch.numel(val_data['HR'][0][0]) != torch.numel(val_data['HR'][0][0])-torch.count_nonzero(val_data['HR'][0][0]).item():
@@ -149,7 +154,7 @@ if __name__ == "__main__":
                             if val_i == opt['train']['val_i']:
                                 val_out = torch.cat([visuals['INF'][0], visuals['SR'], visuals['HR'][0]], dim=2)
                                 val_img = Metrics.tensor2mhd(val_out)  # uint8
-                                Metrics.save_mhd(val_img, '{}/{}_{}_val.mhd'.format(result_path, current_step, idx+1))
+                                Metrics.save_mhd(val_img, '{}/{}_{}_val.mhd'.format(result_path, current_step, idx))
                                 val_sr = Metrics.tensor2mhd(visuals['SR'])
                                 val_hr =Metrics.tensor2mhd(visuals['HR'][0])
                                 val_psnr = Metrics.calculate_psnr(val_sr, val_hr)
@@ -161,7 +166,6 @@ if __name__ == "__main__":
                         sr_img = Metrics.concatImage(sr_imgs, opt['datasets']['val']['image_h'], opt['datasets']['val']['image_w'], opt['datasets']['val']['r_resolution'])
                         hr_img = Metrics.concatImage(hr_imgs, opt['datasets']['val']['image_h'], opt['datasets']['val']['image_w'], opt['datasets']['val']['r_resolution'])
                         fake_img = Metrics.concatImage(fake_imgs, opt['datasets']['val']['image_h'], opt['datasets']['val']['image_w'], opt['datasets']['val']['r_resolution'])
-                        idx += 1
                         # save
                         Metrics.save_mhd(hr_img, '{}/{}_{}_hr.mhd'.format(result_path, current_step, idx))
                         Metrics.save_mhd(sr_img, '{}/{}_{}_sr.mhd'.format(result_path, current_step, idx))
@@ -188,12 +192,11 @@ if __name__ == "__main__":
 
                     avg_psnr = avg_psnr / idx
                     avg_ssim = avg_ssim / idx
-                    diffusion.set_new_noise_schedule(
-                        opt['model']['beta_schedule']['train'], schedule_phase='train')
+                    diffusion.set_new_noise_schedule(opt['model']['beta_schedule']['train'], schedule_phase='train')
                     # log
                     logger.info('# Validation # PSNR: {:.4e}, # SSIM: {:.4e}'.format(avg_psnr, avg_ssim))
                     logger_val = logging.getLogger('val')  # validation logger
-                    logger_val.info('<epoch:{:3d}, iter:{:8,d}> psnr: {:.4e}, ssim: {:.4e}'.format(
+                    logger_val.info('<epoch:{:5d}, iter:{:8,d}> psnr: {:.4e}, ssim: {:.4e}'.format(
                         current_epoch, current_step, avg_psnr, avg_ssim))
                     # tensorboard logger
                     tb_logger.add_scalar('psnr', avg_psnr, current_step)
@@ -225,45 +228,53 @@ if __name__ == "__main__":
         idx = 0
         result_path = '{}'.format(opt['path']['results'])
         os.makedirs(result_path, exist_ok=True)
-        for _,  val_data in enumerate(val_loaders):
+        for _,  val_loader in enumerate(val_loaders):
+            val_i = 0
+            psnr = 0.0
+            ssim = 0.0
+            val_psnr = 0.0
+            val_ssim = 0.0
+            sr_imgs = []
+            hr_imgs = []
+            fake_imgs = []
             idx += 1
-            diffusion.feed_data(val_data)
-            diffusion.test(continous=True)
-            visuals = diffusion.get_current_visuals()
-
-            hr_img = Metrics.tensor2img(visuals['HR'])  # uint8
-            fake_img = Metrics.tensor2img(visuals['INF'])  # uint8
-
-            sr_img_mode = 'grid'
-            if sr_img_mode == 'single':
-                # single img series
-                sr_img = visuals['SR']  # uint8
-                sample_num = sr_img.shape[0]
-                for iter in range(0, sample_num):
-                    Metrics.save_img(
-                        Metrics.tensor2img(sr_img[iter]), '{}/{}_{}_sr_{}.png'.format(result_path, current_step, idx, iter))
-            else:
-                # grid img
-                sr_img = Metrics.tensor2img(visuals['SR'])  # uint8
-                Metrics.save_img(
-                    sr_img, '{}/{}_{}_sr_process.png'.format(result_path, current_step, idx))
-                Metrics.save_img(
-                    Metrics.tensor2img(visuals['SR'][-1]), '{}/{}_{}_sr.png'.format(result_path, current_step, idx))
-
-            Metrics.save_img(
-                hr_img, '{}/{}_{}_hr.png'.format(result_path, current_step, idx))
-            Metrics.save_img(
-                fake_img, '{}/{}_{}_inf.png'.format(result_path, current_step, idx))
+            for _, val_data in tqdm(enumerate(val_loader), desc='validation loop time step', total=len(val_loader)):
+                diffusion.feed_data(val_data)
+                if torch.numel(val_data['HR'][0][0]) != torch.numel(val_data['HR'][0][0])-torch.count_nonzero(val_data['HR'][0][0]).item():
+                    diffusion.test(continous=False)
+                visuals = diffusion.get_current_visuals()
+                if val_i == opt['train']['val_i']:
+                    val_out = torch.cat([visuals['INF'][0], visuals['SR'], visuals['HR'][0]], dim=2)
+                    val_img = Metrics.tensor2mhd(val_out)  # uint8
+                    Metrics.save_mhd(val_img, '{}/{}_{}_val.mhd'.format(result_path, current_step, idx))
+                    val_sr = Metrics.tensor2mhd(visuals['SR'])
+                    val_hr = Metrics.tensor2mhd(visuals['HR'][0])
+                    val_psnr = Metrics.calculate_psnr(val_sr, val_hr)
+                    val_ssim = Metrics.calculate_ssim(val_sr, val_hr)
+                sr_imgs.append(Metrics.tensor2mhd(visuals['SR']))  # uint8
+                hr_imgs.append(Metrics.tensor2mhd(visuals['HR']))  # uint8
+                fake_imgs.append(Metrics.tensor2mhd(visuals['INF']))  # uint8
+                val_i += 1
+            sr_img = Metrics.concatImage(sr_imgs, opt['datasets']['val']['image_h'], opt['datasets']['val']['image_w'], opt['datasets']['val']['r_resolution'])
+            hr_img = Metrics.concatImage(hr_imgs, opt['datasets']['val']['image_h'], opt['datasets']['val']['image_w'], opt['datasets']['val']['r_resolution'])
+            fake_img = Metrics.concatImage(fake_imgs, opt['datasets']['val']['image_h'], opt['datasets']['val']['image_w'], opt['datasets']['val']['r_resolution'])
+            # save
+            Metrics.save_mhd(hr_img, '{}/{}_{}_hr.mhd'.format(result_path, current_step, idx))
+            Metrics.save_mhd(sr_img, '{}/{}_{}_sr.mhd'.format(result_path, current_step, idx))
+            Metrics.save_mhd(fake_img, '{}/{}_{}_inf.mhd'.format(result_path, current_step, idx))
 
             # generation
-            eval_psnr = Metrics.calculate_psnr(Metrics.tensor2img(visuals['SR'][-1]), hr_img)
-            eval_ssim = Metrics.calculate_ssim(Metrics.tensor2img(visuals['SR'][-1]), hr_img)
+            mask = mask_imgs[idx-1]
+            psnr = Metrics.calculate_psnr_mask(sr_img, hr_img, mask)
+            ssim = Metrics.calculate_ssim_mask(sr_img, hr_img, mask)
+            logger.info('# Validation_patch{} # PSNR: {:.4e}, # SSIM: {:.4e}'.format(idx ,val_psnr, val_ssim))
+            logger.info('# Validation{} # PSNR: {:.4e}, # SSIM: {:.4e}'.format(idx ,psnr, ssim))
 
-            avg_psnr += eval_psnr
-            avg_ssim += eval_ssim
+            avg_psnr += psnr
+            avg_ssim += ssim
 
             if wandb_logger and opt['log_eval']:
-                wandb_logger.log_eval_data(fake_img, Metrics.tensor2img(visuals['SR'][-1]), hr_img, eval_psnr, eval_ssim)
+                wandb_logger.log_eval_data(fake_img, sr_img, hr_img, psnr, ssim)
 
         avg_psnr = avg_psnr / idx
         avg_ssim = avg_ssim / idx
@@ -272,7 +283,7 @@ if __name__ == "__main__":
         logger.info('# Validation # PSNR: {:.4e}'.format(avg_psnr))
         logger.info('# Validation # SSIM: {:.4e}'.format(avg_ssim))
         logger_val = logging.getLogger('val')  # validation logger
-        logger_val.info('<epoch:{:3d}, iter:{:8,d}> psnr: {:.4e}, ssim：{:.4e}'.format(
+        logger_val.info('<epoch:{:3d}, iter:{:8,d}> psnr: {:.4e}, ssim: {:.4e}'.format(
             current_epoch, current_step, avg_psnr, avg_ssim))
 
         if wandb_logger:
