@@ -100,6 +100,9 @@ if __name__ == "__main__":
                     break
                 diffusion.feed_data(train_data)
                 diffusion.optimize_parameters()
+                # recon_out = diffusion.print_train_result()
+                # recon_img = Metrics.tensor2img(recon_out)  # uint8
+                # Metrics.save_img(recon_img,'{}/{}_recon.png'.format(result_train_path, current_step))
                 if current_step % opt['train']['print_freq'] == 0:
                     logs = diffusion.get_current_log()
                     message = '<epoch:{:d}, iter:{:8,d}> '.format(
@@ -110,12 +113,12 @@ if __name__ == "__main__":
                     if wandb_logger:
                         wandb_logger.log_metrics(logs)
                     logger.info(message)
-
+                #train out
                 if current_step % opt['train']['train_print_freq'] == 0 and current_step >= opt['train']['over_train_print']:
                     logger.info("<print_train_test>")
                     diffusion.test(continous=False)
                     visuals = diffusion.get_current_visuals()
-                    [b, c, h, w] = visuals['HR'].shape
+                    b = visuals['HR'].shape[0]
                     train_out = torch.cat([visuals['INF'][b-1], visuals['SR'], visuals['HR'][b-1]], dim=2)
                     train_img = Metrics.tensor2mhd(train_out)  # uint8
                     Metrics.save_mhd(train_img, '{}/{}_train.mhd'.format(result_train_path, current_step))
@@ -146,17 +149,17 @@ if __name__ == "__main__":
                             if torch.numel(val_data['HR'][0][0]) != torch.numel(val_data['HR'][0][0])-torch.count_nonzero(val_data['HR'][0][0]).item():
                                 diffusion.test(continous=False)
                             visuals = diffusion.get_current_visuals()
+                            hr_patch = Metrics.tensor2mhd(visuals['HR'])
+                            sr_patch = Metrics.tensor2mhd(visuals['SR'])
+                            fake_patch = Metrics.tensor2mhd(visuals['INF'])
                             if val_i == opt['train']['val_i']:
-                                val_out = torch.cat([visuals['INF'][0], visuals['SR'], visuals['HR'][0]], dim=2)
-                                val_img = Metrics.tensor2mhd(val_out)  # uint8
+                                val_img = np.concatenate([fake_patch, sr_patch, hr_patch], axis=1) # uint8
                                 Metrics.save_mhd(val_img, '{}/{}_{}_val.mhd'.format(result_path, current_step, idx))
-                                val_sr = Metrics.tensor2mhd(visuals['SR'])
-                                val_hr =Metrics.tensor2mhd(visuals['HR'][0])
-                                val_psnr = Metrics.calculate_psnr(val_sr, val_hr)
-                                val_ssim = Metrics.calculate_ssim(val_sr, val_hr)
-                            sr_imgs.append(Metrics.tensor2mhd(visuals['SR']))  # uint8
-                            hr_imgs.append(Metrics.tensor2mhd(visuals['HR']))  # uint8
-                            fake_imgs.append(Metrics.tensor2mhd(visuals['INF']))  # uint8
+                                val_psnr = Metrics.calculate_psnr(sr_patch, hr_patch)
+                                val_ssim = Metrics.calculate_ssim(sr_patch, hr_patch)
+                            sr_imgs.append(sr_patch)  # uint8
+                            hr_imgs.append(hr_patch)  # uint8
+                            fake_imgs.append(fake_patch)  # uint8
                             val_i += 1
                         sr_img = Metrics.concatImage(sr_imgs, opt['datasets']['val']['image_h'], opt['datasets']['val']['image_w'], opt['datasets']['val']['r_resolution'])
                         hr_img = Metrics.concatImage(hr_imgs, opt['datasets']['val']['image_h'], opt['datasets']['val']['image_w'], opt['datasets']['val']['r_resolution'])
@@ -239,18 +242,19 @@ if __name__ == "__main__":
                 if torch.numel(val_data['HR'][0][0]) != torch.numel(val_data['HR'][0][0])-torch.count_nonzero(val_data['HR'][0][0]).item():
                     diffusion.test(continous=False)
                 visuals = diffusion.get_current_visuals()
+                hr_patch = Metrics.tensor2mhd(visuals['HR'])
+                sr_patch = Metrics.tensor2mhd(visuals['SR'])
+                fake_patch = Metrics.tensor2mhd(visuals['INF'])
                 if val_i == opt['train']['val_i']:
-                    val_fake = Metrics.tensor2mhd(visuals['INF'])
-                    val_sr = Metrics.tensor2mhd(visuals['SR'])
-                    val_hr = Metrics.tensor2mhd(visuals['HR'])
-                    val_img = np.concatenate([val_fake, val_sr, val_hr], axis=1) # uint8
-                    val_psnr = Metrics.calculate_psnr(val_sr, val_hr)
-                    val_ssim = Metrics.calculate_ssim(val_sr, val_hr)
+                    val_img = np.concatenate([fake_patch, sr_patch, hr_patch], axis=1) # uint8
                     Metrics.save_mhd(val_img, '{}/{}_{}_val.mhd'.format(result_path, current_step, idx))
-                sr_imgs.append(Metrics.tensor2mhd(visuals['SR']))  # uint8
-                hr_imgs.append(Metrics.tensor2mhd(visuals['HR']))  # uint8
-                fake_imgs.append(Metrics.tensor2mhd(visuals['INF']))  # uint8
+                    val_psnr = Metrics.calculate_psnr(sr_patch, hr_patch)
+                    val_ssim = Metrics.calculate_ssim(sr_patch, hr_patch)
+                sr_imgs.append(hr_patch)  # uint8
+                hr_imgs.append(sr_patch)  # uint8
+                fake_imgs.append(fake_patch)  # uint8
                 val_i += 1
+            #patchの再構成
             sr_img = Metrics.concatImage(sr_imgs, opt['datasets']['val']['image_h'], opt['datasets']['val']['image_w'], opt['datasets']['val']['r_resolution'])
             hr_img = Metrics.concatImage(hr_imgs, opt['datasets']['val']['image_h'], opt['datasets']['val']['image_w'], opt['datasets']['val']['r_resolution'])
             fake_img = Metrics.concatImage(fake_imgs, opt['datasets']['val']['image_h'], opt['datasets']['val']['image_w'], opt['datasets']['val']['r_resolution'])

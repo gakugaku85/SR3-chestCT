@@ -87,8 +87,12 @@ class GaussianDiffusion(nn.Module):
             self.loss_func = nn.L1Loss(reduction='sum').to(device)
         elif self.loss_type == 'l2':
             self.loss_func = nn.MSELoss(reduction='sum').to(device)
+            self.none_loss = nn.MSELoss(reduction='none').to(device)
         else:
             raise NotImplementedError()
+        # Sobelフィルタのカーネルを定義
+        self.sobel_x = torch.tensor([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=torch.float32).to(device)
+        self.sobel_y = torch.tensor([[1, 2, 1], [0, 0, 0], [-1, -2, -1]], dtype=torch.float32).to(device)
 
     def set_new_noise_schedule(self, schedule_opt, device):
         to_torch = partial(torch.tensor, dtype=torch.float32, device=device)
@@ -222,6 +226,11 @@ class GaussianDiffusion(nn.Module):
 
     def p_losses(self, x_in, noise=None):
         x_start = x_in['HR']
+
+        sobel_x_image = F.conv2d(x_start, self.sobel_x.view(-1, 1, 3, 3), padding=1)
+        sobel_y_image = F.conv2d(x_start, self.sobel_y.view(-1, 1, 3, 3), padding=1)
+        sobel_image = torch.abs(sobel_x_image) + torch.abs(sobel_y_image)
+
         [b, c, h, w] = x_start.shape
         t = np.random.randint(1, self.num_timesteps + 1)
         continuous_sqrt_alpha_cumprod = torch.FloatTensor(
@@ -242,11 +251,15 @@ class GaussianDiffusion(nn.Module):
         else:
             x_recon = self.denoise_fn(torch.cat([x_in['SR'], x_noisy], dim=1), continuous_sqrt_alpha_cumprod)
 
-        self.train_result = torch.cat([x_in['HR'][0], x_noisy[0], noise[0], x_recon[0]], dim=2)
+        # self.train_result = torch.cat([x_in['HR'][0], sobel_image[0]], dim=2)
+        sobel_image = sobel_image + 1
 
         self.diff_loss = self.loss_func(noise, x_recon) #もともとの損失
 
-        return self.diff_loss
+        mse_loss = self.none_loss(noise, x_recon) #sobel_loss
+        self.sobel_diff_loss = (mse_loss * sobel_image).sum()#sobel_loss
+
+        return self.sobel_diff_loss
 
     def forward(self, x, *args, **kwargs):
         return self.p_losses(x, *args, **kwargs)
@@ -255,4 +268,4 @@ class GaussianDiffusion(nn.Module):
         return self.train_result
 
     def get_each_loss(self):
-        return self.diff_loss
+        return self.diff_loss, self.sobel_diff_loss
