@@ -31,6 +31,9 @@ def parse(args):
             json_str += line
     opt = json.loads(json_str, object_pairs_hook=OrderedDict)
 
+    if phase == 'val':
+        opt['name'] = '{}_val'.format(opt['name'])
+
     # set log directory
     if args.debug:
         opt['name'] = 'debug_{}'.format(opt['name'])
@@ -68,12 +71,8 @@ def parse(args):
         opt['datasets']['train']['batch_size'] = 8
         opt['model']['beta_schedule']['train']['n_timestep'] = 2000
         opt['model']['beta_schedule']['val']['n_timestep'] = 2
-        opt['datasets']['train']['data_length'] = 500
+        opt['datasets']['train']['data_length'] = 200
         opt['datasets']['val']['data_length'] = -1
-
-    # validation in train phase
-    if phase == 'train':
-        opt['datasets']['val']['data_length'] = 3
 
     # W&B Logging
     try:

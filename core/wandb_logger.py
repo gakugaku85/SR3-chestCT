@@ -15,6 +15,8 @@ class WandbLogger:
         
         self._wandb = wandb
 
+        if opt['phase'] == 'val':
+            opt['wandb']['project'] = '{}_val'.format(opt['wandb']['project'])
         # Initialize a W&B run
         if self._wandb.run is None:
             self._wandb.init(
