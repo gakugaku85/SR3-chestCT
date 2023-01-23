@@ -54,6 +54,10 @@ if __name__ == "__main__":
     else:
         wandb_logger = None
 
+    # model
+    diffusion = Model.create_model(opt)
+    logger.info('Initial Model Finished')
+
     # dataset
     for phase, dataset_opt in opt['datasets'].items():
         if phase == 'train' and args.phase != 'val':
@@ -73,11 +77,6 @@ if __name__ == "__main__":
         # print(mask_path)
     logger.info('Initial mask Finished')
         
-
-    # model
-    diffusion = Model.create_model(opt)
-    logger.info('Initial Model Finished')
-
     # Train
     current_step = diffusion.begin_step
     current_epoch = diffusion.begin_epoch
@@ -101,10 +100,6 @@ if __name__ == "__main__":
                     break
                 diffusion.feed_data(train_data)
                 diffusion.optimize_parameters()
-                # recon_out = diffusion.print_train_result()
-                # recon_img = Metrics.tensor2img(recon_out)  # uint8
-                # Metrics.save_img(recon_img,'{}/{}_recon.png'.format(result_path, current_step) )
-                # log
                 if current_step % opt['train']['print_freq'] == 0:
                     logs = diffusion.get_current_log()
                     message = '<epoch:{:d}, iter:{:8,d}> '.format(
@@ -116,7 +111,7 @@ if __name__ == "__main__":
                         wandb_logger.log_metrics(logs)
                     logger.info(message)
 
-                if current_step % opt['train']['train_print_freq'] == 0 and current_step > opt['train']['over_train_print']:
+                if current_step % opt['train']['train_print_freq'] == 0 and current_step >= opt['train']['over_train_print']:
                     logger.info("<print_train_test>")
                     diffusion.test(continous=False)
                     visuals = diffusion.get_current_visuals()
@@ -126,12 +121,12 @@ if __name__ == "__main__":
                     Metrics.save_mhd(train_img, '{}/{}_train.mhd'.format(result_train_path, current_step))
 
                 # validation
-                if current_step % opt['train']['val_freq'] == 0 and current_step > opt['train']['over_val']:
+                if current_step % opt['train']['val_freq'] == 0 and current_step >= opt['train']['over_val']:
+                    result_path = '{}/{}'.format(opt['path']['results'], current_epoch)
+                    os.makedirs(result_path, exist_ok=True)
                     avg_psnr = 0.0
                     avg_ssim = 0.0
                     idx = 0
-                    result_path = '{}/{}'.format(opt['path']['results'], current_epoch)
-                    os.makedirs(result_path, exist_ok=True)
 
                     diffusion.set_new_noise_schedule(
                         opt['model']['beta_schedule']['val'], schedule_phase='val')
@@ -223,6 +218,7 @@ if __name__ == "__main__":
         logger.info('End of training.')
     else:
         logger.info('Begin Model Evaluation.')
+        logger_val = logging.getLogger('val')  # validation logger
         avg_psnr = 0.0
         avg_ssim = 0.0
         idx = 0
@@ -244,13 +240,13 @@ if __name__ == "__main__":
                     diffusion.test(continous=False)
                 visuals = diffusion.get_current_visuals()
                 if val_i == opt['train']['val_i']:
-                    val_out = torch.cat([visuals['INF'][0], visuals['SR'], visuals['HR'][0]], dim=2)
-                    val_img = Metrics.tensor2mhd(val_out)  # uint8
-                    Metrics.save_mhd(val_img, '{}/{}_{}_val.mhd'.format(result_path, current_step, idx))
+                    val_fake = Metrics.tensor2mhd(visuals['INF'])
                     val_sr = Metrics.tensor2mhd(visuals['SR'])
-                    val_hr = Metrics.tensor2mhd(visuals['HR'][0])
+                    val_hr = Metrics.tensor2mhd(visuals['HR'])
+                    val_img = np.concatenate([val_fake, val_sr, val_hr], axis=1) # uint8
                     val_psnr = Metrics.calculate_psnr(val_sr, val_hr)
                     val_ssim = Metrics.calculate_ssim(val_sr, val_hr)
+                    Metrics.save_mhd(val_img, '{}/{}_{}_val.mhd'.format(result_path, current_step, idx))
                 sr_imgs.append(Metrics.tensor2mhd(visuals['SR']))  # uint8
                 hr_imgs.append(Metrics.tensor2mhd(visuals['HR']))  # uint8
                 fake_imgs.append(Metrics.tensor2mhd(visuals['INF']))  # uint8
@@ -268,7 +264,7 @@ if __name__ == "__main__":
             psnr = Metrics.calculate_psnr_mask(sr_img, hr_img, mask)
             ssim = Metrics.calculate_ssim_mask(sr_img, hr_img, mask)
             logger.info('# Validation_patch{} # PSNR: {:.4e}, # SSIM: {:.4e}'.format(idx ,val_psnr, val_ssim))
-            logger.info('# Validation{} # PSNR: {:.4e}, # SSIM: {:.4e}'.format(idx ,psnr, ssim))
+            logger_val.info('# Validation{} # PSNR: {:.4e}, # SSIM: {:.4e}'.format(idx ,psnr, ssim))
 
             avg_psnr += psnr
             avg_ssim += ssim
@@ -282,7 +278,6 @@ if __name__ == "__main__":
         # log
         logger.info('# Validation # PSNR: {:.4e}'.format(avg_psnr))
         logger.info('# Validation # SSIM: {:.4e}'.format(avg_ssim))
-        logger_val = logging.getLogger('val')  # validation logger
         logger_val.info('<epoch:{:3d}, iter:{:8,d}> psnr: {:.4e}, ssim: {:.4e}'.format(
             current_epoch, current_step, avg_psnr, avg_ssim))
 
