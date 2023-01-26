@@ -101,8 +101,8 @@ if __name__ == "__main__":
                 diffusion.feed_data(train_data)
                 diffusion.optimize_parameters()
                 # recon_out = diffusion.print_train_result()
-                # recon_img = Metrics.tensor2img(recon_out)  # uint8
-                # Metrics.save_img(recon_img,'{}/{}_recon.png'.format(result_train_path, current_step))
+                # recon_img = Metrics.tensor2mhd(recon_out)  # uint8
+                # Metrics.save_mhd(recon_img,'{}/{}_recon.mhd'.format(result_train_path, current_step))
                 if current_step % opt['train']['print_freq'] == 0:
                     logs = diffusion.get_current_log()
                     message = '<epoch:{:d}, iter:{:8,d}> '.format(
@@ -161,9 +161,9 @@ if __name__ == "__main__":
                             hr_imgs.append(hr_patch)  # uint8
                             fake_imgs.append(fake_patch)  # uint8
                             val_i += 1
-                        sr_img = Metrics.concatImage(sr_imgs, opt['datasets']['val']['image_h'], opt['datasets']['val']['image_w'], opt['datasets']['val']['r_resolution'])
-                        hr_img = Metrics.concatImage(hr_imgs, opt['datasets']['val']['image_h'], opt['datasets']['val']['image_w'], opt['datasets']['val']['r_resolution'])
-                        fake_img = Metrics.concatImage(fake_imgs, opt['datasets']['val']['image_h'], opt['datasets']['val']['image_w'], opt['datasets']['val']['r_resolution'])
+                        sr_img = Metrics.concatImage(sr_imgs, opt)
+                        hr_img = Metrics.concatImage(hr_imgs, opt)
+                        fake_img = Metrics.concatImage(fake_imgs, opt)
                         # save
                         Metrics.save_mhd(hr_img, '{}/{}_{}_hr.mhd'.format(result_path, current_step, idx))
                         Metrics.save_mhd(sr_img, '{}/{}_{}_sr.mhd'.format(result_path, current_step, idx))
@@ -207,7 +207,7 @@ if __name__ == "__main__":
                         })
                         val_step += 1
 
-                if current_step % opt['train']['save_checkpoint_freq'] == 0:
+                if current_step % opt['train']['save_checkpoint_freq'] == 0 and current_step >= opt['train']['over_val']:
                     logger.info('Saving models and training states.')
                     diffusion.save_network(current_epoch, current_step)
 

@@ -10,7 +10,7 @@ from natsort import natsorted
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-p', '--path', type=str,
-                        default='experiments/sr_microCT_patch_val_230119_171947/results')
+                        default='experiments/validation/sr_microCT_patch_val_230119_171947/results')
     args = parser.parse_args()
     real_names = list(glob.glob('{}/*_hr.mhd'.format(args.path)))
     fake_names = list(glob.glob('{}/*_sr.mhd'.format(args.path)))
@@ -29,10 +29,12 @@ if __name__ == "__main__":
 
     print(real_names)
 
-    result_path = 'experiments/sr_microCT_patch_val_230119_171947/results'
+    result_path = 'experiments/validation/sr_microCT_patch_val_230119_171947/results'
 
     avg_psnr = 0.0
     avg_ssim = 0.0
+    avg_zncc = 0.0
+    avg_dpow = 0.0
     idx = 0
     for rname, fname, lname in zip(real_names, fake_names, lr_names):
         idx += 1
@@ -56,18 +58,27 @@ if __name__ == "__main__":
         # hr_img = np.array(Image.open(rname))
         # sr_img = np.array(Image.open(fname))
         mask = mask_imgs[idx-1]
-        psnr = Metrics.calculate_psnr_mask(sr_img, hr_img, mask)
-        ssim = Metrics.calculate_ssim_mask(sr_img, hr_img, mask)
+        psnr = Metrics.calculate_psnr_mask(lr_img, hr_img, mask)
+        ssim = Metrics.calculate_ssim_mask(lr_img, hr_img, mask)
+        zncc = Metrics.zncc(lr_img, hr_img)
+        dpow = Metrics.d_power(hr_img, lr_img)
         avg_psnr += psnr
         avg_ssim += ssim
-        print('Image:{}, PSNR:{:.4f}, SSIM:{:.4f}'.format(idx, psnr, ssim))
+        avg_zncc += zncc
+        avg_dpow += dpow
+        print('Image:{}, PSNR:{:.4f}, SSIM:{:.4f}, ZNCC:{:.4f}, D-power:{:.4f}'.format(idx, psnr, ssim, zncc, dpow))
         # if idx % 20 == 0:
         map_img = (sr_img - hr_img)**2
         Metrics.save_mhd(map_img, '{}/{}_2map.mhd'.format(result_path, idx))
 
     avg_psnr = avg_psnr / idx
     avg_ssim = avg_ssim / idx
+    avg_zncc = avg_zncc / idx
+    avg_dpow = avg_dpow / idx
 
     # log
     print('# Validation # PSNR: {:.4e}'.format(avg_psnr))
     print('# Validation # SSIM: {:.4e}'.format(avg_ssim))
+    print('# Validation # ZNCC: {:.4e}'.format(avg_zncc))
+    print('# Validation # D-power: {:.4e}'.format(avg_dpow))
+

@@ -74,7 +74,10 @@ def save_mhd(img, img_path):
     img = sitk.GetImageFromArray(img)
     sitk.WriteImage(img, img_path)
 
-def concatImage(images, h, w, hr_size):
+def concatImage(images, opt):
+    h = opt['datasets']['val']['image_h']
+    w = opt['datasets']['val']['image_w']
+    hr_size = opt['datasets']['val']['r_resolution']
     H = h
     W = w
     while H % hr_size != 0:
@@ -199,3 +202,31 @@ def calculate_ssim_mask(img1, img2, mask):
         return ssim_mask(masked_im1, img2, mask_array)
     else:
         raise ValueError("Wrong input image dimensions.")
+
+def zncc(img1, img2):
+    # 画像をfloat32型に変換
+    img1 = img1.astype(np.float64)
+    img2 = img2.astype(np.float64)
+    # 画像の平均値を計算
+    mean1 = np.mean(img1)
+    mean2 = np.mean(img2)
+    # 画像を平均値0に正規化
+    img1 = img1 - mean1
+    img2 = img2 - mean2
+    # 相関係数を計算
+    corr = np.sum(img1 * img2) / (np.sqrt(np.sum(img1 ** 2)) * np.sqrt(np.sum(img2 ** 2)))
+    return corr
+
+def d_power(img1, img2):
+    # 画像をfloat32型に変換
+    img1 = img1.astype(np.float64)
+    img2 = img2.astype(np.float64)
+    # 画像を高速フーリエ変換
+    f1 = np.fft.fft2(img1)
+    f2 = np.fft.fft2(img2)
+    # 高周波成分の強さを計算
+    high_pass1 = np.abs(f1) ** 2
+    high_pass2 = np.abs(f2) ** 2
+    # D-powerを計算
+    dp = np.sum(high_pass2) / np.sum(high_pass1)
+    return dp
