@@ -85,6 +85,7 @@ class GaussianDiffusion(nn.Module):
     def set_loss(self, device):
         if self.loss_type == 'l1':
             self.loss_func = nn.L1Loss(reduction='sum').to(device)
+            self.none_loss = nn.L1Loss(reduction='none').to(device)
         elif self.loss_type == 'l2':
             self.loss_func = nn.MSELoss(reduction='sum').to(device)
             self.none_loss = nn.MSELoss(reduction='none').to(device)
@@ -251,12 +252,12 @@ class GaussianDiffusion(nn.Module):
         else:
             x_recon = self.denoise_fn(torch.cat([x_in['SR'], x_noisy], dim=1), continuous_sqrt_alpha_cumprod)
 
-        # self.train_result = torch.cat([x_in['HR'][0], sobel_image[0]], dim=2)
+        self.train_result = torch.cat([x_in['HR'][0], sobel_image[0]], dim=2)
         sobel_image = sobel_image + 1
 
         self.diff_loss = self.loss_func(noise, x_recon) #もともとの損失
 
-        mse_loss = self.none_loss(noise, x_recon) #sobel_loss
+        mse_loss = self.none_loss(noise, x_recon)
         self.sobel_diff_loss = (mse_loss * sobel_image).sum()#sobel_loss
 
         return self.sobel_diff_loss

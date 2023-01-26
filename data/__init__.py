@@ -39,7 +39,8 @@ def create_dataset(dataset_opt, phase):
                     split=phase,
                     data_len=dataset_opt['data_length'],
                     need_LR=(mode == 'LRHR'),
-                    slice_file=0
+                    slice_file=0,
+                    black_ratio=dataset_opt['black_ratio']
                     )
     elif phase == 'val':
         dataset = [D(dataroot=dataset_opt['dataroot'],

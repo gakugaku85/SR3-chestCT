@@ -20,8 +20,9 @@
             "datatype": "mhd", //lmdb or img, path of img files
             "l_resolution": 16, // low resolution need to super_resolution
             "r_resolution": 64, // high resolution
-            "batch_size": 128,
+            "batch_size": 64,
             "num_workers": 8,
+            "black_ratio": 0.8,
             "use_shuffle": true,
             "data_length": -1 // -1 represents all data used in train
         },
@@ -81,13 +82,14 @@
         "diffusion": {
             "image_size":  64,
             "channels": 1, //sample channel
+            "loss_func": "l1",
             "conditional": true // unconditional generation or unconditional generation(super_resolution)
         }
     },
     "train": {
         "n_iter": 100000,
         "val_freq": 2000,
-        "over_val": 10000,
+        "over_val": 20000,
         "val_i": 290,
         "train_print_freq": 1000,
         "over_train_print": 10000,

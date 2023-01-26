@@ -13,13 +13,14 @@ from tqdm import tqdm
 
 
 class LRHRDataset(Dataset):
-    def __init__(self, dataroot, datatype, l_resolution=16, r_resolution=128, split='train', data_len=-1, need_LR=False, slice_file=0):
+    def __init__(self, dataroot, datatype, l_resolution=16, r_resolution=128, split='train', data_len=-1, need_LR=False, slice_file=0, black_ratio = 0.8):
         self.datatype = datatype
         self.l_res = l_resolution
         self.r_res = r_resolution
         self.data_len = data_len
         self.need_LR = need_LR
         self.split = split
+        self.black_ratio = black_ratio
 
         self.hr_paths = []
         self.lr_paths = [] 
@@ -83,7 +84,7 @@ class LRHRDataset(Dataset):
                 while(1):
                     crop_h, crop_w = choose_lung_crop(H, W, GT_size)
                     img_HR = nda_img_HR[crop_h: crop_h + GT_size, crop_w : crop_w + GT_size]
-                    if (np.count_nonzero(img_HR==0)/np.count_nonzero(img_HR>=0) <= 0.8):#黒の割合
+                    if (np.count_nonzero(img_HR==0)/np.count_nonzero(img_HR>=0) <= self.black_ratio):#黒の割合
                         break
                 nda_img_HR = nda_img_HR[crop_h: crop_h + GT_size, crop_w : crop_w + GT_size]
                 nda_img_SR = nda_img_SR[crop_h: crop_h + GT_size, crop_w : crop_w + GT_size]
@@ -92,7 +93,7 @@ class LRHRDataset(Dataset):
 
         [img_SR, img_HR] = Util.transform_augment(
             [img_SR, img_HR], split=self.split, min_max=(0, 1))
-        return {'HR': img_HR, 'SR': img_SR, 'Index': index}
+        return {'HR': img_HR, 'SR': img_SR}
 
 def choose_lung_crop(H, W, GT_size):
     h = random.randint(0, H-GT_size)
