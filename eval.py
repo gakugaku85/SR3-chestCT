@@ -10,7 +10,7 @@ from natsort import natsorted
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-p', '--path', type=str,
-                        default='experiments/validation/sr_microCT_patch_val_230119_171947/results')
+                        default='experiments/sr_microCT_patch_230112_140212/results/3134')
     args = parser.parse_args()
     real_names = list(glob.glob('{}/*_hr.mhd'.format(args.path)))
     fake_names = list(glob.glob('{}/*_sr.mhd'.format(args.path)))
@@ -18,10 +18,10 @@ if __name__ == "__main__":
 
     real_names.sort()
     fake_names.sort()
-
+    mask_root_path = "../dataset/mask_1794_sobel_png_2"
     mask_imgs = []
-    for mask_filename in natsorted(os.listdir(os.path.abspath("../dataset/mask_1792_png_2"))):
-        mask_path = os.path.join("../dataset/mask_1792_png_2", mask_filename)
+    for mask_filename in natsorted(os.listdir(os.path.abspath(mask_root_path))):
+        mask_path = os.path.join(mask_root_path, mask_filename)
         mask = Image.open(mask_path).convert('L')
         mask = np.array(mask, dtype=np.uint8)
         mask_imgs.append(mask)
@@ -40,36 +40,32 @@ if __name__ == "__main__":
         idx += 1
         ridx = rname.rsplit("_hr")[0]
         fidx = rname.rsplit("_sr")[0]
-        # assert ridx == fidx, 'Image ridx:{ridx}!=fidx:{fidx}'.format(ridx, fidx)
 
         img_HR = sitk.ReadImage(rname)
         img_SR = sitk.ReadImage(fname)
         img_LR = sitk.ReadImage(lname)
 
-        sobel_HR = sitk.SobelEdgeDetection(img_HR)
-        sobel_SR = sitk.SobelEdgeDetection(img_SR)
-        sitk.WriteImage(sobel_HR, '{}/{}_sobelHR.mhd'.format(result_path, idx))
-        sitk.WriteImage(sobel_SR, '{}/{}_sobelSR.mhd'.format(result_path, idx))
+        # sobel_HR = sitk.SobelEdgeDetection(img_HR)
+        # sobel_SR = sitk.SobelEdgeDetection(img_SR)
+        # sitk.WriteImage(sobel_HR, '{}/{}_sobelHR.mhd'.format(result_path, idx))
+        # sitk.WriteImage(sobel_SR, '{}/{}_sobelSR.mhd'.format(result_path, idx))
 
         hr_img = sitk.GetArrayFromImage(img_HR)
         sr_img = sitk.GetArrayFromImage(img_SR)
         lr_img = sitk.GetArrayFromImage(img_LR)
 
-        # hr_img = np.array(Image.open(rname))
-        # sr_img = np.array(Image.open(fname))
         mask = mask_imgs[idx-1]
-        psnr = Metrics.calculate_psnr_mask(lr_img, hr_img, mask)
-        ssim = Metrics.calculate_ssim_mask(lr_img, hr_img, mask)
-        zncc = Metrics.zncc(lr_img, hr_img)
-        dpow = Metrics.d_power(hr_img, lr_img)
+        psnr = Metrics.calculate_psnr_mask(sr_img, hr_img, mask)
+        ssim = Metrics.calculate_ssim_mask(sr_img, hr_img, mask)
+        zncc = Metrics.zncc(sr_img, hr_img)
+        dpow = Metrics.d_power(sr_img, hr_img)
         avg_psnr += psnr
         avg_ssim += ssim
         avg_zncc += zncc
         avg_dpow += dpow
         print('Image:{}, PSNR:{:.4f}, SSIM:{:.4f}, ZNCC:{:.4f}, D-power:{:.4f}'.format(idx, psnr, ssim, zncc, dpow))
-        # if idx % 20 == 0:
-        map_img = (sr_img - hr_img)**2
-        Metrics.save_mhd(map_img, '{}/{}_2map.mhd'.format(result_path, idx))
+        # map_img = (sr_img - hr_img)**2
+        # Metrics.save_mhd(map_img, '{}/{}_2map.mhd'.format(result_path, idx))
 
     avg_psnr = avg_psnr / idx
     avg_ssim = avg_ssim / idx
