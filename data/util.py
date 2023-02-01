@@ -57,7 +57,7 @@ def augment(img_list, hflip=True, rot=True, split='val'):
 
 def transform2numpy(img):
     img = np.array(img)
-    img = img.astype(np.float32) / 255.
+    img = img.astype(np.float64) / 255.
     img = img.clip(min=0, max=1)
     if img.ndim == 2:
         img = np.expand_dims(img, axis=2)

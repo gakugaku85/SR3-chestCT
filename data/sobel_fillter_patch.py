@@ -36,7 +36,7 @@ def save_mhd(img, img_path):
 
 def sobel_filter(image, min_max=(0, 1)):
     img = np.array(image)
-    img = img.astype(np.float32) / 255.
+    img = img.astype(np.float64) / 255.
     img = img.clip(min=0, max=1)
     if img.ndim == 2:
         img = np.expand_dims(img, axis=2)
@@ -44,8 +44,8 @@ def sobel_filter(image, min_max=(0, 1)):
     img = torch.from_numpy(np.ascontiguousarray(np.transpose(img, (2, 0, 1)))).float()
     image = img*(min_max[1] - min_max[0]) + min_max[0]
 
-    kernel_x = torch.tensor([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=torch.float32)
-    kernel_y = torch.tensor([[-1, -2, -1], [0, 0, 0], [1, 2, 1]], dtype=torch.float32)
+    kernel_x = torch.tensor([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=torch.float64)
+    kernel_y = torch.tensor([[-1, -2, -1], [0, 0, 0], [1, 2, 1]], dtype=torch.float64)
 
     conv_x = nn.Conv2d(in_channels=1, out_channels=1, kernel_size=3, padding=0, bias=False)
     conv_x.weight = nn.Parameter(kernel_x.unsqueeze(0).unsqueeze(0))
@@ -74,8 +74,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
     os.makedirs(args.out, exist_ok=True)
 
-    sobel_x = torch.tensor([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=torch.float32)
-    sobel_y = torch.tensor([[1, 2, 1], [0, 0, 0], [-1, -2, -1]], dtype=torch.float32)
+    sobel_x = torch.tensor([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=torch.float64)
+    sobel_y = torch.tensor([[1, 2, 1], [0, 0, 0], [-1, -2, -1]], dtype=torch.float64)
 
     files = glob(osp.join(args.path +'/hr_64/*')) #スライスファイルの名前取得
     files = natsorted([file.split('/')[4] for file in files])

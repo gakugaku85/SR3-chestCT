@@ -23,7 +23,7 @@ def save_img(img, img_path, mode='RGB'):
 
 def sobel_filter(image, min_max=(0, 1)):
     img = np.array(image)
-    img = img.astype(np.float32) / 255.
+    img = img.astype(np.float64) / 255.
     img = img.clip(min=0, max=1)
 
     # Define Sobel filters
@@ -48,8 +48,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
     os.makedirs(args.out, exist_ok=True)
 
-    sobel_x = torch.tensor([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=torch.float32)
-    sobel_y = torch.tensor([[1, 2, 1], [0, 0, 0], [-1, -2, -1]], dtype=torch.float32)
+    sobel_x = torch.tensor([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=torch.float64)
+    sobel_y = torch.tensor([[1, 2, 1], [0, 0, 0], [-1, -2, -1]], dtype=torch.float64)
 
     files = natsorted(glob(osp.join(args.path+'/hr_0/*.mhd'))) #スライスファイルの名前取得
     # print(files)

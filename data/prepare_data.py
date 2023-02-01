@@ -29,14 +29,14 @@ def image_convert_bytes(img):
     img.save(buffer, format='png')
     return buffer.getvalue()
 
-def padding_square(img, sizes):
+def zero_padding(img, sizes, over_lap):
     H, W =img.shape
-    while H % sizes[1] != 0:
+    while H % (sizes[1]-over_lap) != 0:
         H=H+1
-    while W % sizes[1] != 0:
+    while W % (sizes[1]-over_lap) != 0:
         W=W+1
     pil_image = Image.fromarray(img)
-    new_img = Image.new(pil_image.mode, (W, H), 0)
+    new_img = Image.new(pil_image.mode, (W+over_lap, H+over_lap), 0)
     new_img.paste(pil_image, (0, 0))
     return np.array(new_img)
 
@@ -54,6 +54,8 @@ def resize_multiple(img, sizes=(16, 128), resample=Image.BICUBIC, lmdb_save=Fals
 
 def resize_multiple_patch_save(img, out_path, sizes=(16, 128), mhd_sizes=(), resample=Image.BICUBIC, img_file="", lmdb_save=False):
     os.makedirs(out_path, exist_ok=True)
+    Hs = sizes[1]
+    Ls = sizes[0]
     if sizes[0] == 0:
         os.makedirs('{}/nonzero/lr_{}'.format(out_path, sizes[0]), exist_ok=True)
         os.makedirs('{}/nonzero/hr_{}'.format(out_path, sizes[1]), exist_ok=True)
@@ -75,15 +77,16 @@ def resize_multiple_patch_save(img, out_path, sizes=(16, 128), mhd_sizes=(), res
         save_mhd(hr_img, '{}/hr_{}/{}.mhd'.format(out_path, sizes[1], img_file))
         save_mhd(sr_img, '{}/sr_{}_{}/{}.mhd'.format(out_path, sizes[0], sizes[1], img_file))
     else:
-        os.makedirs('{}/nonzero/lr_{}/{}'.format(out_path, sizes[0], img_file), exist_ok=True)
         os.makedirs('{}/nonzero/hr_{}/{}'.format(out_path, sizes[1], img_file), exist_ok=True)
         os.makedirs('{}/nonzero/sr_{}_{}/{}'.format(out_path, sizes[0], sizes[1], img_file), exist_ok=True)
-        os.makedirs('{}/lr_{}/{}'.format(out_path, sizes[0], img_file), exist_ok=True)
         os.makedirs('{}/hr_{}/{}'.format(out_path, sizes[1], img_file), exist_ok=True)
         os.makedirs('{}/sr_{}_{}/{}'.format(out_path, sizes[0], sizes[1], img_file), exist_ok=True)
 
-        img = padding_square(img, sizes)
+        over_lap =  50
+        img = zero_padding(img, sizes, over_lap)
+
         pil_image = Image.fromarray(img)
+        
         lr_img = resize_and_convert(pil_image, (img.shape[0]//4, img.shape[1]//4), resample)
         pil_hr_img = resize_and_convert(pil_image, (img.shape[0], img.shape[1]), resample)
         pil_sr_img = resize_and_convert(lr_img, (img.shape[0], img.shape[1]), resample)
@@ -92,16 +95,17 @@ def resize_multiple_patch_save(img, out_path, sizes=(16, 128), mhd_sizes=(), res
         sr_img = np.array(pil_sr_img)
 
         H, W= img.shape
-        nH = int(H/sizes[1])
-        nW = int(W/sizes[1])
+        print(img.shape)
+        nH = int(H / (Hs-over_lap))
+        nW = int(W / (Hs-over_lap))
 
-        hr_imgs = [Image.fromarray(hr_img[sizes[1]*x:sizes[1]*(x+1), sizes[1]*y:sizes[1]*(y+1)]) for x in range(nH) for y in range(nW)]
-        sr_imgs = [Image.fromarray(sr_img[sizes[1]*x:sizes[1]*(x+1), sizes[1]*y:sizes[1]*(y+1)]) for x in range(nH) for y in range(nW)]
+        hr_imgs = [Image.fromarray(hr_img[(Hs*x) - (over_lap*x) :(Hs*(x+1))-(over_lap*x), (Hs*y)-(over_lap*y) : (Hs*(y+1))-(over_lap*y)]) for x in range(nH) for y in range(nW)]
+        # sr_imgs = [Image.fromarray(sr_img[sizes[1]*x:sizes[1]*(x+1), sizes[1]*y:sizes[1]*(y+1)]) for x in range(nH) for y in range(nW)]
 
         for i, img in enumerate(hr_imgs):
             save_mhd(img, '{}/hr_{}/{}/{}.mhd'.format(out_path, sizes[1], img_file, i))
-        for i, img in enumerate(sr_imgs):
-            save_mhd(img, '{}/sr_{}_{}/{}/{}.mhd'.format(out_path, sizes[0], sizes[1], img_file, i))
+        # for i, img in enumerate(sr_imgs):
+        #     save_mhd(img, '{}/sr_{}_{}/{}/{}.mhd'.format(out_path, sizes[0], sizes[1], img_file, i))
 
 def resize_worker(img_file, sizes, resample, lmdb_save=False):
     img = Image.open(img_file)
@@ -184,11 +188,11 @@ def prepare(img_path, out_path, n_worker, sizes=(16, 128), resample=Image.BICUBI
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--path', '-p', type=str,
-                        default='../datasetCT/from_sam/1792_microCT/upperandlower_99point95percentile_BicubicDSby2_denoise_2dslices_masked_normalised_1792')
+                        default='../datasetCT/from_sam/1794_microCT/upperandlower_99point95percentile_BicubicDSby2_denoise_2dslices_masked_normalised_1794')
     parser.add_argument('--out', '-o', type=str,
-                        default='../dataset/microCT_slices_1792')
+                        default='../dataset/microCT_slices_1794_overlap')
 
-    parser.add_argument('--size', type=str, default='16, 64')
+    parser.add_argument('--size', type=str, default='64, 256')
     parser.add_argument('--n_worker', type=int, default=1)
     parser.add_argument('--resample', type=str, default='bicubic')
     # default save in png format

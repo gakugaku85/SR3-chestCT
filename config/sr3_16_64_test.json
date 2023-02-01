@@ -10,7 +10,7 @@
         "results": "results",
         "checkpoint": "checkpoint",
         // "resume_state": null
-        "resume_state": "experiments/sr_microCT_patch_230112_140212/checkpoint/I100000_E3334" //pretrain model or training state
+        "resume_state": "experiments/sr_microCT_patch_230126_082204/checkpoint/I92000_E3067" //pretrain model or training state
     },
     "datasets": {
         "train": {
@@ -29,11 +29,12 @@
         "val": {
             "name": "1792",
             "mode": "HR",
-            "dataroot": "../dataset/microCT_slices_1792_patch_16_64_2",
+            "dataroot": "../dataset/microCT_slices_1792_0_0_2",
             "datatype": "mhd", //lmdb or img, path of img files
             "maskroot": "../dataset/mask_1792_png_2",
             "l_resolution": 16,
             "r_resolution": 64,
+            "overlap": 4,
             "use_shuffle": false,
             "image_h": 1948,
             "image_w": 1713,

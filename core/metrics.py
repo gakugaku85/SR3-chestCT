@@ -34,7 +34,7 @@ def tensor2img(tensor, out_type=np.uint8, min_max=(-1, 1)):
         # Important. Unlike matlab, numpy.unit8() WILL NOT round by default.
     return img_np.astype(out_type)
 
-def tensor2mhd(tensor, out_type=np.float32, min_max=(0, 1)):  # type: ignore
+def tensor2mhd(tensor, out_type=np.float64, min_max=(0, 1)):  # type: ignore
     """
     Converts a torch Tensor into an image Numpy array
     Input: 4D(B,(3/1),H,W), 3D(C,H,W), or 2D(H,W), any range, RGB channel order
@@ -58,7 +58,7 @@ def tensor2mhd(tensor, out_type=np.float32, min_max=(0, 1)):  # type: ignore
                 n_dim
             )
         )
-    if out_type == np.float32:
+    if out_type == np.float64:
         img_np = img_np * 255.
         # Important. Unlike matlab, numpy.unit8() WILL NOT round by default.
     return img_np.astype(out_type)
@@ -77,21 +77,22 @@ def save_mhd(img, img_path):
 def concatImage(images, opt):
     h = opt['datasets']['val']['image_h']
     w = opt['datasets']['val']['image_w']
-    hr_size = opt['datasets']['val']['r_resolution']
-    H = h
-    W = w
-    while H % hr_size != 0:
-        H=H+1
-    while W % hr_size != 0:
-        W=W+1
-    nH = int(H/hr_size)
-    nW = int(W/hr_size)
-    image_h = []
-    for i in range(nW):
-        image_h.append(cv2.hconcat(images[i*nH:(i+1)*nH]))
-    image = cv2.vconcat(image_h)
-    image = image[:w, :h]
-    return image
+    hr_patch_size = opt['datasets']['val']['r_resolution']
+    overlap = opt['datasets']['val']['overlap']
+    STRIDE = hr_patch_size - overlap #60
+    coor = [(x, y)
+            for x in range(0, w, STRIDE)
+            for y in range(0, h, STRIDE)]
+    overlap_im = np.zeros((w+hr_patch_size, h+hr_patch_size), dtype=np.float64)
+    count = np.zeros(overlap_im.shape, dtype=np.uint8)
+
+    print(images[0].shape)
+
+    for i, (x, y) in enumerate(coor):
+        overlap_im[x:x+hr_patch_size, y:y+hr_patch_size] += images[i]
+        count[x:x+hr_patch_size, y:y+hr_patch_size] += 1
+    overlap_im[count > 0] /= count[count > 0]
+    return overlap_im[:w, :h]
 
 def calculate_psnr(img1, img2):
     # img1 and img2 have range [0, 255]
@@ -204,7 +205,7 @@ def calculate_ssim_mask(img1, img2, mask):
         raise ValueError("Wrong input image dimensions.")
 
 def zncc(img1, img2):
-    # 画像をfloat32型に変換
+    # 画像をfloat64型に変換
     img1 = img1.astype(np.float64)
     img2 = img2.astype(np.float64)
     # 画像の平均値を計算
@@ -218,7 +219,7 @@ def zncc(img1, img2):
     return corr
 
 def d_power(img1, img2):
-    # 画像をfloat32型に変換
+    # 画像をfloat64型に変換
     img1 = img1.astype(np.float64)
     img2 = img2.astype(np.float64)
     # 画像を高速フーリエ変換

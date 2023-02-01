@@ -27,31 +27,30 @@ def create_dataloader(dataset, dataset_opt, phase):
 def create_dataset(dataset_opt, phase):
     '''create dataset'''
     mode = dataset_opt['mode']
-    files = glob(osp.join(dataset_opt['dataroot']+'/hr_{}/*'.format(dataset_opt['r_resolution']))) #スライスファイルの名前取得
-    files = natsorted([file.split('/')[4] for file in files])
+    files = glob(osp.join(dataset_opt['dataroot']+'/hr_0/*.mhd')) #スライスファイルの名前取得
+    file_paths = natsorted([file.split('/')[4] for file in files])
     # print(files)
     from data.LRHR_dataset import LRHRDataset as D
     if phase == 'train':
         dataset = D(dataroot=dataset_opt['dataroot'],
                     datatype=dataset_opt['datatype'],
                     l_resolution=dataset_opt['l_resolution'],
-                    r_resolution=dataset_opt['r_resolution'],
+                    hr_patch_size=dataset_opt['r_resolution'],
                     split=phase,
                     data_len=dataset_opt['data_length'],
-                    need_LR=(mode == 'LRHR'),
-                    slice_file=0,
+                    need_LR=(mode == 'HR'),
                     black_ratio=dataset_opt['black_ratio']
                     )
     elif phase == 'val':
         dataset = [D(dataroot=dataset_opt['dataroot'],
                     datatype=dataset_opt['datatype'],
                     l_resolution=dataset_opt['l_resolution'],
-                    r_resolution=dataset_opt['r_resolution'],
+                    hr_patch_size=dataset_opt['r_resolution'],
                     split=phase,
                     data_len=dataset_opt['data_length'],
-                    need_LR=(mode == 'LRHR'),
-                    slice_file=file
-                    ) for file in files]
+                    need_LR=(mode == 'HR'),
+                    overlap=dataset_opt['overlap'],
+                    slice_file=path) for path in file_paths]
     logger = logging.getLogger('base')
     logger.info('Dataset [{:s} - {:s}] is created.'.format(dataset.__class__.__name__,
                                                            dataset_opt['name']))

@@ -21,7 +21,7 @@ class TimeEmbedding(nn.Module):
         super().__init__()
         self.dim = dim
         inv_freq = torch.exp(
-            torch.arange(0, dim, 2, dtype=torch.float32) *
+            torch.arange(0, dim, 2, dtype=torch.float64) *
             (-math.log(10000) / dim)
         )
         self.register_buffer("inv_freq", inv_freq)

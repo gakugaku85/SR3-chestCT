@@ -29,11 +29,12 @@
         "val": {
             "name": "1794",
             "mode": "HR",
-            "dataroot": "../dataset/microCT_slices_1794_patch_64_256_2",
+            "dataroot": "../dataset/microCT_slices_1794_0_0_2",
             "datatype": "mhd", //lmdb or img, path of img files
             "maskroot": "../dataset/mask_1794_png_2",
             "l_resolution": 64,
             "r_resolution": 256,
+            "overlap": 16,
             "use_shuffle": false,
             "image_h": 1100,
             "image_w": 1536,
@@ -46,7 +47,7 @@
         "unet": {
             "in_channel": 2,
             "out_channel": 1,
-            "inner_channel": 128,
+            "inner_channel": 64,
             "norm_groups": 16,
             "channel_multiplier": [
                 1,
@@ -59,7 +60,7 @@
             "attn_res": [
                 16
             ],
-            "res_blocks": 3,
+            "res_blocks": 1,
             "dropout": 0
         },
         "beta_schedule": { // use munual beta_schedule for acceleration
