@@ -250,14 +250,14 @@ if __name__ == "__main__":
                     Metrics.save_mhd(val_img, '{}/{}_{}_val.mhd'.format(result_path, current_step, idx))
                     val_psnr = Metrics.calculate_psnr(sr_patch, hr_patch)
                     val_ssim = Metrics.calculate_ssim(sr_patch, hr_patch)
-                sr_imgs.append(hr_patch)  # uint8
-                hr_imgs.append(sr_patch)  # uint8
+                sr_imgs.append(sr_patch)  # uint8
+                hr_imgs.append(hr_patch)  # uint8
                 fake_imgs.append(fake_patch)  # uint8
                 val_i += 1
             #patchの再構成
-            sr_img = Metrics.concatImage(sr_imgs, opt['datasets']['val']['image_h'], opt['datasets']['val']['image_w'], opt['datasets']['val']['r_resolution'])
-            hr_img = Metrics.concatImage(hr_imgs, opt['datasets']['val']['image_h'], opt['datasets']['val']['image_w'], opt['datasets']['val']['r_resolution'])
-            fake_img = Metrics.concatImage(fake_imgs, opt['datasets']['val']['image_h'], opt['datasets']['val']['image_w'], opt['datasets']['val']['r_resolution'])
+            sr_img = Metrics.concatImage(sr_imgs, opt)
+            hr_img = Metrics.concatImage(hr_imgs, opt)
+            fake_img = Metrics.concatImage(fake_imgs, opt)
             # save
             Metrics.save_mhd(hr_img, '{}/{}_{}_hr.mhd'.format(result_path, current_step, idx))
             Metrics.save_mhd(sr_img, '{}/{}_{}_sr.mhd'.format(result_path, current_step, idx))

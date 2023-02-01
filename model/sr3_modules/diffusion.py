@@ -230,7 +230,8 @@ class GaussianDiffusion(nn.Module):
 
         sobel_x_image = F.conv2d(x_start, self.sobel_x.view(-1, 1, 3, 3), padding=1)
         sobel_y_image = F.conv2d(x_start, self.sobel_y.view(-1, 1, 3, 3), padding=1)
-        sobel_image = torch.abs(sobel_x_image) + torch.abs(sobel_y_image)
+        # sobel_image = torch.abs(sobel_x_image) + torch.abs(sobel_y_image)
+        sobel_image = torch.sqrt(torch.pow(sobel_x_image, 2) + torch.pow(sobel_y_image, 2))
 
         [b, c, h, w] = x_start.shape
         t = np.random.randint(1, self.num_timesteps + 1)

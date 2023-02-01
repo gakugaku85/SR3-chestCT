@@ -10,7 +10,7 @@ from natsort import natsorted
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-p', '--path', type=str,
-                        default='experiments/sr_microCT_patch_230112_140212/results/3134')
+                        default='experiments/sr_microCT_patch_230112_140212/results/3200')
     args = parser.parse_args()
     real_names = list(glob.glob('{}/*_hr.mhd'.format(args.path)))
     fake_names = list(glob.glob('{}/*_sr.mhd'.format(args.path)))
@@ -18,7 +18,7 @@ if __name__ == "__main__":
 
     real_names.sort()
     fake_names.sort()
-    mask_root_path = "../dataset/mask_1794_sobel_png_2"
+    mask_root_path = "../dataset/mask_1794_sobel_png_4"
     mask_imgs = []
     for mask_filename in natsorted(os.listdir(os.path.abspath(mask_root_path))):
         mask_path = os.path.join(mask_root_path, mask_filename)
@@ -73,8 +73,8 @@ if __name__ == "__main__":
     avg_dpow = avg_dpow / idx
 
     # log
-    print('# Validation # PSNR: {:.4e}'.format(avg_psnr))
-    print('# Validation # SSIM: {:.4e}'.format(avg_ssim))
-    print('# Validation # ZNCC: {:.4e}'.format(avg_zncc))
-    print('# Validation # D-power: {:.4e}'.format(avg_dpow))
+    print('Validation # PSNR: {:.4e}'.format(avg_psnr))
+    print('Validation # SSIM: {:.4e}'.format(avg_ssim))
+    print('Validation # ZNCC: {:.4e}'.format(avg_zncc))
+    print('Validation # D-power: {:.4e}'.format(avg_dpow))
 

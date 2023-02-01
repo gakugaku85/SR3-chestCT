@@ -33,7 +33,8 @@ def sobel_filter(image, min_max=(0, 1)):
     # Apply Sobel filters
     sobelx = ndimage.convolve(img, sobel_x)
     sobely = ndimage.convolve(img, sobel_y)
-    sobel = np.abs(sobelx) + np.abs(sobely)
+    sobel = np.sqrt(np.square(sobelx) + np.square(sobely))
+    # sobel = np.abs(sobelx) + np.abs(sobely)
 
     return sobel
 
@@ -42,7 +43,7 @@ if __name__ == '__main__':
     parser.add_argument('--path', '-p', type=str,
                         default='../dataset/microCT_slices_1794_0_0_2')
     parser.add_argument('--out', '-o', type=str,
-                        default='../dataset/microCT_slices_1794_sobel')
+                        default='../dataset/mask_1794_sobel_png_1_reverse')
 
     args = parser.parse_args()
     os.makedirs(args.out, exist_ok=True)
@@ -57,6 +58,7 @@ if __name__ == '__main__':
     for i, path in tqdm(enumerate(files)):
         image = sitk.GetArrayFromImage(sitk.ReadImage(path))
         image = sobel_filter(image)
-        img_bin = np.where(image < 1.5, 255, 0)
-        save_img(img_bin, '{}/{}_hr_bin2.png'.format(args.out, i))
-        save_mhd(image, '{}/{}_hr.mhd'.format(args.out, i))
+        # img_bin = np.where((image > 0.5) & (image < 1), 255, 0)
+        img_bin = np.where(image < 1, 255, 0)
+        save_img(img_bin, '{}/{}_hr_bin1.png'.format(args.out, i))
+        # save_mhd(image, '{}/{}_hr.mhd'.format(args.out, i))
