@@ -10,7 +10,7 @@
         "results": "results",
         "checkpoint": "checkpoint",
         // "resume_state": null
-        "resume_state": "experiments/sr_microCT_patch_230126_082204/checkpoint/I92000_E3067" //pretrain model or training state
+        "resume_state": "experiments/sr_microCT_patch_230112_140212/checkpoint/I100000_E3334" //pretrain model or training state
     },
     "datasets": {
         "train": {
@@ -35,6 +35,7 @@
             "l_resolution": 16,
             "r_resolution": 64,
             "overlap": 4,
+            "batch_size": 1024,
             "use_shuffle": false,
             "image_h": 1948,
             "image_w": 1713,

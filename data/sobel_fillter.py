@@ -41,24 +41,40 @@ def sobel_filter(image, min_max=(0, 1)):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--path', '-p', type=str,
-                        default='../dataset/microCT_slices_1794_0_0_2')
+                        default='../dataset/microCT_slices_1792_0_0_2')
+    parser.add_argument('--mask_path', '-mp', type=str,
+                        default='../dataset/mask_1792')
     parser.add_argument('--out', '-o', type=str,
-                        default='../dataset/mask_1794_sobel_png_1_reverse')
+                        default='../dataset/mask_1792_sobel_png')
 
     args = parser.parse_args()
-    os.makedirs(args.out, exist_ok=True)
+    os.makedirs(args.out+'_1', exist_ok=True)
+    os.makedirs(args.out+'_05', exist_ok=True)
+    os.makedirs(args.out+'_E', exist_ok=True)
+    os.makedirs(args.out+'_1_outside', exist_ok=True)
 
     sobel_x = torch.tensor([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=torch.float64)
     sobel_y = torch.tensor([[1, 2, 1], [0, 0, 0], [-1, -2, -1]], dtype=torch.float64)
 
+    mask_files = natsorted(glob(osp.join(args.mask_path+'_png_2/*.png')))
     files = natsorted(glob(osp.join(args.path+'/hr_0/*.mhd'))) #スライスファイルの名前取得
-    # print(files)
-
+    i = 0
     val_files = []
-    for i, path in tqdm(enumerate(files)):
+    for path, mask in zip(files, mask_files):
         image = sitk.GetArrayFromImage(sitk.ReadImage(path))
+        mask = cv2.cvtColor(cv2.imread(mask), cv2.COLOR_BGR2GRAY)
         image = sobel_filter(image)
-        # img_bin = np.where((image > 0.5) & (image < 1), 255, 0)
-        img_bin = np.where(image < 1, 255, 0)
-        save_img(img_bin, '{}/{}_hr_bin1.png'.format(args.out, i))
+        print(np.max(image), np.min(image))
+        img_bin_E = np.where((image > 0.5) & (image < 1), 255, 0)
+        img_bin_1 = np.where(image > 1, 255, 0)
+        img_bin_05 = np.where(image > 0.5, 255, 0)
+
+        img_bin_rev = np.where(image < 1, 255, 0)
+        img_outside = mask * img_bin_rev
+
+        save_img(img_bin_1, '{}_1/{}_hr_bin1.png'.format(args.out, i))
+        save_img(img_bin_05, '{}_05/{}_hr_bin1.png'.format(args.out, i))
+        save_img(img_bin_E, '{}_E/{}_hr_bin1.png'.format(args.out, i))
+        save_img(img_outside, '{}_1_outside/{}_hr_bin1.png'.format(args.out, i))
         # save_mhd(image, '{}/{}_hr.mhd'.format(args.out, i))
+        i += 1

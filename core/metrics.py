@@ -86,8 +86,6 @@ def concatImage(images, opt):
     overlap_im = np.zeros((w+hr_patch_size, h+hr_patch_size), dtype=np.float64)
     count = np.zeros(overlap_im.shape, dtype=np.uint8)
 
-    print(images[0].shape)
-
     for i, (x, y) in enumerate(coor):
         overlap_im[x:x+hr_patch_size, y:y+hr_patch_size] += images[i]
         count[x:x+hr_patch_size, y:y+hr_patch_size] += 1

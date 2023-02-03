@@ -237,23 +237,24 @@ if __name__ == "__main__":
             hr_imgs = []
             fake_imgs = []
             idx += 1
-            for _, val_data in tqdm(enumerate(val_loader), desc='validation loop time step', total=len(val_loader)):
+            for _, val_data in enumerate(val_loader):
                 diffusion.feed_data(val_data)
-                if torch.numel(val_data['HR'][0][0]) != torch.numel(val_data['HR'][0][0])-torch.count_nonzero(val_data['HR'][0][0]).item():
-                    diffusion.test(continous=False)
+                # if torch.numel(val_data['HR'][0][0]) != torch.numel(val_data['HR'][0][0])-torch.count_nonzero(val_data['HR'][0][0]).item():
+                diffusion.test(continous=False)
                 visuals = diffusion.get_current_visuals()
-                hr_patch = Metrics.tensor2mhd(visuals['HR'])
-                sr_patch = Metrics.tensor2mhd(visuals['SR'])
-                fake_patch = Metrics.tensor2mhd(visuals['INF'])
-                if val_i == opt['train']['val_i']:
-                    val_img = np.concatenate([fake_patch, sr_patch, hr_patch], axis=1) # uint8
-                    Metrics.save_mhd(val_img, '{}/{}_{}_val.mhd'.format(result_path, current_step, idx))
-                    val_psnr = Metrics.calculate_psnr(sr_patch, hr_patch)
-                    val_ssim = Metrics.calculate_ssim(sr_patch, hr_patch)
-                sr_imgs.append(sr_patch)  # uint8
-                hr_imgs.append(hr_patch)  # uint8
-                fake_imgs.append(fake_patch)  # uint8
-                val_i += 1
+                for i in range(visuals['SR'].shape[0]):
+                    hr_patch = Metrics.tensor2mhd(visuals['HR'][i])
+                    sr_patch = Metrics.tensor2mhd(visuals['SR'][i])
+                    fake_patch = Metrics.tensor2mhd(visuals['INF'][i])
+                    if val_i == opt['train']['val_i']:
+                        val_img = np.concatenate([fake_patch, sr_patch, hr_patch], axis=1) # uint8
+                        Metrics.save_mhd(val_img, '{}/{}_{}_val.mhd'.format(result_path, current_step, idx))
+                        val_psnr = Metrics.calculate_psnr(sr_patch, hr_patch)
+                        val_ssim = Metrics.calculate_ssim(sr_patch, hr_patch)
+                    sr_imgs.append(sr_patch)  # uint8
+                    hr_imgs.append(hr_patch)  # uint8
+                    fake_imgs.append(fake_patch)  # uint8
+                    val_i += 1
             #patchの再構成
             sr_img = Metrics.concatImage(sr_imgs, opt)
             hr_img = Metrics.concatImage(hr_imgs, opt)
