@@ -69,6 +69,7 @@ class GaussianDiffusion(nn.Module):
         image_size,
         channels=3,
         loss_type='l1',
+        loss_name='sobel',
         conditional=True,
         schedule_opt=None
     ):
@@ -77,6 +78,7 @@ class GaussianDiffusion(nn.Module):
         self.image_size = image_size
         self.denoise_fn = denoise_fn
         self.loss_type = loss_type
+        self.loss_name = loss_name
         self.conditional = conditional
         if schedule_opt is not None:
             pass
@@ -262,7 +264,12 @@ class GaussianDiffusion(nn.Module):
         mse_loss = self.none_loss(noise, x_recon)
         self.sobel_diff_loss = (mse_loss * sobel_image).sum()#sobel_loss
 
-        return self.sobel_diff_loss
+        if self.loss_name == 'sobel':
+            self.loss = self.sobel_diff_loss
+        elif self.loss_name == 'diff':
+            self.loss = self.diff_loss
+
+        return self.loss
 
     def forward(self, x, *args, **kwargs):
         return self.p_losses(x, *args, **kwargs)

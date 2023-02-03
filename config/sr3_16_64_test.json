@@ -37,8 +37,8 @@
             "overlap": 4,
             "batch_size": 1024,
             "use_shuffle": false,
-            "image_h": 1948,
-            "image_w": 1713,
+            "image_h": 1713,
+            "image_w": 1948,
             "data_length": -1 // -1 represents all data used in validation
         }
     },

@@ -81,8 +81,6 @@ class LRHRDataset(Dataset):
             else:
                 self.data_len = min(self.data_len, self.dataset_len)
 
-            print(hr_path)
-
     def __len__(self):
         return self.data_len
 

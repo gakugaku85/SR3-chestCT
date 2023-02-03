@@ -37,8 +37,8 @@
             "overlap": 4,
             "batch_size": 1024,
             "use_shuffle": false,
-            "image_h": 1100,
-            "image_w": 1536,
+            "image_h": 1536,
+            "image_w": 1100,
             "data_length": -1 // -1 represents all data used in validation
         }
     },
@@ -85,6 +85,7 @@
             "image_size":  64,
             "channels": 1, //sample channel
             "loss_func": "l1",
+            "loss_name": "diff",  //sobel or diff
             "conditional": true // unconditional generation or unconditional generation(super_resolution)
         }
     },

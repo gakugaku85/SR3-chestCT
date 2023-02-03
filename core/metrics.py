@@ -81,16 +81,16 @@ def concatImage(images, opt):
     overlap = opt['datasets']['val']['overlap']
     STRIDE = hr_patch_size - overlap #60
     coor = [(x, y)
-            for x in range(0, w, STRIDE)
-            for y in range(0, h, STRIDE)]
-    overlap_im = np.zeros((w+hr_patch_size, h+hr_patch_size), dtype=np.float64)
+            for x in range(0, h, STRIDE)
+            for y in range(0, w, STRIDE)]
+    overlap_im = np.zeros((h+hr_patch_size, w+hr_patch_size), dtype=np.float64)
     count = np.zeros(overlap_im.shape, dtype=np.uint8)
 
     for i, (x, y) in enumerate(coor):
         overlap_im[x:x+hr_patch_size, y:y+hr_patch_size] += images[i]
         count[x:x+hr_patch_size, y:y+hr_patch_size] += 1
     overlap_im[count > 0] /= count[count > 0]
-    return overlap_im[:w, :h]
+    return overlap_im[:h, :w]
 
 def calculate_psnr(img1, img2):
     # img1 and img2 have range [0, 255]
