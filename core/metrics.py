@@ -4,6 +4,7 @@ import numpy as np
 import cv2
 from torchvision.utils import make_grid
 import SimpleITK as sitk
+from scipy.fftpack import fftn
 
 
 def tensor2img(tensor, out_type=np.uint8, min_max=(-1, 1)):
@@ -65,8 +66,10 @@ def tensor2mhd(tensor, out_type=np.float64, min_max=(0, 1)):  # type: ignore
 
 
 def save_img(img, img_path, mode='RGB'):
-    cv2.imwrite(img_path, cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
-    # cv2.imwrite(img_path, img)
+    # img = cv2.normalize(img, None, 0, 255, cv2.NORM_MINMAX)
+    # img = np.uint8(img)
+    # cv2.imwrite(img_path, cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
+    cv2.imwrite(img_path, img)
 
 def save_mhd(img, img_path):
     # if img.ndim == 3:
@@ -92,24 +95,24 @@ def concatImage(images, opt):
     overlap_im[count > 0] /= count[count > 0]
     return overlap_im[:h, :w]
 
-def calculate_psnr(img1, img2):
-    # img1 and img2 have range [0, 255]
-    img1 = img1.astype(np.float64)
-    img2 = img2.astype(np.float64)
-    mse = np.mean((img1 - img2)**2)
+def calculate_psnr(gt, input):
+    # gt and input have range [0, 255]
+    gt = gt.astype(np.float64)
+    input = input.astype(np.float64)
+    mse = np.mean((gt - input)**2)
     if mse == 0:
         return float('inf')
     return 20 * math.log10(255.0 / math.sqrt(mse))
 
-def calculate_psnr_mask(img1, img2, mask):
+def calculate_psnr_mask(gt, input, mask):
     mask_slice = mask / 255
     mask_array_boolean = np.ma.make_mask(mask_slice)
     mask_array = np.invert(mask_array_boolean)
 
-    masked_im1 = img1 * mask_slice
+    masked_im1 = gt * mask_slice
     masked_im1 = masked_im1.astype(np.float64)
 
-    square_errors = (masked_im1 - img2) ** 2
+    square_errors = (masked_im1 - input) ** 2
     masked_square_errors = np.ma.array(square_errors, mask=mask_array)
     masked_mse = np.mean(masked_square_errors)
     if masked_mse == 0:
@@ -117,45 +120,45 @@ def calculate_psnr_mask(img1, img2, mask):
     return 20 * math.log10(255.0 / math.sqrt(masked_mse))
 
 
-def ssim(img1, img2):
+def ssim(gt, input):
     C1 = (0.01 * 255)**2
     C2 = (0.03 * 255)**2
 
-    img1 = img1.astype(np.float64)
-    img2 = img2.astype(np.float64)
+    gt = gt.astype(np.float64)
+    input = input.astype(np.float64)
     kernel = cv2.getGaussianKernel(11, 1.5)
     window = np.outer(kernel, kernel.transpose())
 
-    mu1 = cv2.filter2D(img1, -1, window)[5:-5, 5:-5]  # valid
-    mu2 = cv2.filter2D(img2, -1, window)[5:-5, 5:-5]
+    mu1 = cv2.filter2D(gt, -1, window)[5:-5, 5:-5]  # valid
+    mu2 = cv2.filter2D(input, -1, window)[5:-5, 5:-5]
     mu1_sq = mu1**2
     mu2_sq = mu2**2
     mu1_mu2 = mu1 * mu2
-    sigma1_sq = cv2.filter2D(img1**2, -1, window)[5:-5, 5:-5] - mu1_sq
-    sigma2_sq = cv2.filter2D(img2**2, -1, window)[5:-5, 5:-5] - mu2_sq
-    sigma12 = cv2.filter2D(img1 * img2, -1, window)[5:-5, 5:-5] - mu1_mu2
+    sigma1_sq = cv2.filter2D(gt**2, -1, window)[5:-5, 5:-5] - mu1_sq
+    sigma2_sq = cv2.filter2D(input**2, -1, window)[5:-5, 5:-5] - mu2_sq
+    sigma12 = cv2.filter2D(gt * input, -1, window)[5:-5, 5:-5] - mu1_mu2
 
     ssim_map = ((2 * mu1_mu2 + C1) * (2 * sigma12 + C2)) / ((mu1_sq + mu2_sq + C1) *
                                                             (sigma1_sq + sigma2_sq + C2))
     return ssim_map.mean()
 
-def ssim_mask(img1, img2, mask):
+def ssim_mask(gt, input, mask):
     C1 = (0.01 * 255) ** 2
     C2 = (0.03 * 255) ** 2
 
-    img1 = img1.astype(np.float64)
-    img2 = img2.astype(np.float64)
+    gt = gt.astype(np.float64)
+    input = input.astype(np.float64)
     kernel = cv2.getGaussianKernel(11, 1.5)
     window = np.outer(kernel, kernel.transpose())
 
-    mu1 = cv2.filter2D(img1, -1, window)[5:-5, 5:-5]  # valid
-    mu2 = cv2.filter2D(img2, -1, window)[5:-5, 5:-5]
+    mu1 = cv2.filter2D(gt, -1, window)[5:-5, 5:-5]  # valid
+    mu2 = cv2.filter2D(input, -1, window)[5:-5, 5:-5]
     mu1_sq = mu1 ** 2
     mu2_sq = mu2 ** 2
     mu1_mu2 = mu1 * mu2
-    sigma1_sq = cv2.filter2D(img1 ** 2, -1, window)[5:-5, 5:-5] - mu1_sq
-    sigma2_sq = cv2.filter2D(img2 ** 2, -1, window)[5:-5, 5:-5] - mu2_sq
-    sigma12 = cv2.filter2D(img1 * img2, -1, window)[5:-5, 5:-5] - mu1_mu2
+    sigma1_sq = cv2.filter2D(gt ** 2, -1, window)[5:-5, 5:-5] - mu1_sq
+    sigma2_sq = cv2.filter2D(input ** 2, -1, window)[5:-5, 5:-5] - mu2_sq
+    sigma12 = cv2.filter2D(gt * input, -1, window)[5:-5, 5:-5] - mu1_mu2
 
     ssim_map = ((2 * mu1_mu2 + C1) * (2 * sigma12 + C2)) / (
         (mu1_sq + mu2_sq + C1) * (sigma1_sq + sigma2_sq + C2)
@@ -164,68 +167,96 @@ def ssim_mask(img1, img2, mask):
     return ssim_map_masked.mean()
 
 
-def calculate_ssim(img1, img2):
+def calculate_ssim(gt, input):
     '''calculate SSIM
     the same outputs as MATLAB's
-    img1, img2: [0, 255]
+    gt, input: [0, 255]
     '''
-    if not img1.shape == img2.shape:
+    if not gt.shape == input.shape:
         raise ValueError('Input images must have the same dimensions.')
-    if img1.ndim == 2:
-        return ssim(img1, img2)
-    elif img1.ndim == 3:
-        if img1.shape[2] == 3:
+    if gt.ndim == 2:
+        return ssim(gt, input)
+    elif gt.ndim == 3:
+        if gt.shape[2] == 3:
             ssims = []
             for i in range(3):
-                ssims.append(ssim(img1, img2))
+                ssims.append(ssim(gt, input))
             return np.array(ssims).mean()
-        elif img1.shape[2] == 1:
-            return ssim(np.squeeze(img1), np.squeeze(img2))
+        elif gt.shape[2] == 1:
+            return ssim(np.squeeze(gt), np.squeeze(input))
     else:
         raise ValueError('Wrong input image dimensions.')
 
-def calculate_ssim_mask(img1, img2, mask):
+def calculate_ssim_mask(gt, input, mask):
     mask_slice = mask / 255
     mask_array_boolean = np.ma.make_mask(mask_slice)
     mask_array = np.invert(mask_array_boolean)
 
-    masked_im1 = img1 * mask_slice
+    masked_im1 = gt * mask_slice
     masked_im1 = masked_im1.astype(np.float64)
     """calculate SSIM
     the same outputs as MATLAB's
-    img1, img2: [0, 255]
+    gt, input: [0, 255]
     """
-    if not img1.shape == img2.shape:
+    if not gt.shape == input.shape:
         raise ValueError("Input images must have the same dimensions.")
-    if img1.ndim == 2:
-        return ssim_mask(masked_im1, img2, mask_array)
+    if gt.ndim == 2:
+        return ssim_mask(masked_im1, input, mask_array)
     else:
         raise ValueError("Wrong input image dimensions.")
 
-def zncc(img1, img2):
+def zncc(gt, input):
     # 画像をfloat64型に変換
-    img1 = img1.astype(np.float64)
-    img2 = img2.astype(np.float64)
+    gt = gt.astype(np.float64)
+    input = input.astype(np.float64)
     # 画像の平均値を計算
-    mean1 = np.mean(img1)
-    mean2 = np.mean(img2)
+    mean1 = np.mean(gt)
+    mean2 = np.mean(input)
     # 画像を平均値0に正規化
-    img1 = img1 - mean1
-    img2 = img2 - mean2
+    gt = gt - mean1
+    input = input - mean2
     # 相関係数を計算
-    corr = np.sum(img1 * img2) / (np.sqrt(np.sum(img1 ** 2)) * np.sqrt(np.sum(img2 ** 2)))
+    corr = np.sum(gt * input) / (np.sqrt(np.sum(gt ** 2)) * np.sqrt(np.sum(input ** 2)))
     return corr
 
-def d_power(img1, img2):
+def calc_zncc(gt, input):
+    """
+    https://github.com/ladisk/pyDIC/blob/master/dic.py
+    Calculate the zero normalized cross-correlation coefficient of input images.
+    :param gt: First input image.
+    :param input: Second input image.
+    :return: zncc ([0,1]). If 1, input images match perfectly.
+    """
+    nom = np.mean((gt-gt.mean())*(input-input.mean()))
+    den = gt.std()*input.std()
+    if den == 0:
+        return 0
+    return nom/den
+
+def d_power(gt, input):
     # 画像をfloat64型に変換
-    img1 = img1.astype(np.float64)
-    img2 = img2.astype(np.float64)
+    gt = gt.astype(np.float64)
+    input = input.astype(np.float64)
     # 画像を高速フーリエ変換
-    f1 = np.fft.fft2(img1)
-    f2 = np.fft.fft2(img2)
+    f1 = np.fft.fft2(gt)
+    f2 = np.fft.fft2(input)
     # 高周波成分の強さを計算
     high_pass1 = np.abs(f1) ** 2
     high_pass2 = np.abs(f2) ** 2
     # D-powerを計算
     dp = np.sum(high_pass2) / np.sum(high_pass1)
     return dp
+
+def calc_fft_domain(gt, input):
+    imgFreqs = np.fft.fftn(input)
+    gtFreqs = np.fft.fftn(gt)
+    imgFreqs = np.fft.fftshift(imgFreqs)
+    gtFreqs = np.fft.fftshift(gtFreqs)
+
+    img_freq = np.abs(imgFreqs)
+    gt_freq = np.abs(gtFreqs)
+
+    diff_spe = np.abs((np.abs(gtFreqs) ** 2)-(np.abs(imgFreqs) ** 2))
+    diff_spe_const = np.mean(diff_spe)
+
+    return diff_spe_const, diff_spe, img_freq, gt_freq
