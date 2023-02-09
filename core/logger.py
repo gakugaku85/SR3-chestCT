@@ -63,15 +63,15 @@ def parse(args):
 
     # debug
     if 'debug' in opt['name']:
-        opt['train']['val_freq'] = 50
+        opt['train']['val_freq'] = 5
         opt['train']['over_val'] = 0
         opt['train']['over_train_print'] = 100
         opt['train']['print_freq'] = 50
         opt['train']['train_print_freq'] = 50
-        opt['datasets']['train']['batch_size'] = 64
-        opt['model']['beta_schedule']['train']['n_timestep'] = 20
-        opt['model']['beta_schedule']['val']['n_timestep'] = 50
-        opt['datasets']['train']['data_length'] = 100
+        opt['datasets']['train']['batch_size'] = 16
+        opt['model']['beta_schedule']['train']['n_timestep'] = 2000
+        opt['model']['beta_schedule']['val']['n_timestep'] = 2000
+        opt['datasets']['train']['data_length'] = 10
         opt['datasets']['val']['data_length'] = -1
 
     # W&B Logging

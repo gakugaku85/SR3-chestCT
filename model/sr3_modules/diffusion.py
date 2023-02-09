@@ -108,48 +108,51 @@ class GaussianDiffusion(nn.Module):
         betas = betas.detach().cpu().numpy() if isinstance(
             betas, torch.Tensor) else betas
         alphas = 1. - betas
-        alphas_cumprod = np.cumprod(alphas, axis=0)
-        alphas_cumprod_prev = np.append(1., alphas_cumprod[:-1])
-        self.sqrt_alphas_cumprod_prev = np.sqrt(np.append(1., alphas_cumprod))
-        # plt.plot(betas)
-        # plt.ylabel('betas')
-        # plt.xlabel('timesteps')
-        # plt.savefig('./betas.png')
+        gamma = np.cumprod(alphas, axis=0)
+        gamma_prev = np.append(1., gamma[:-1])
+        self.sqrt_gamma_prev = np.sqrt(np.append(1., gamma))
+        # print(gamma)
+        # print(gamma_prev)
+        # print(self.sqrt_gamma_prev)
+        # input()
+        plt.plot(gamma)
+        plt.ylabel('gamma')
+        plt.xlabel('timesteps')
+        plt.savefig('./gamma.png')
 
         timesteps, = betas.shape
         self.num_timesteps = int(timesteps)
         self.register_buffer('betas', to_torch(betas))
-        self.register_buffer('alphas_cumprod', to_torch(alphas_cumprod))
-        self.register_buffer('alphas_cumprod_prev',
-                             to_torch(alphas_cumprod_prev))
+        self.register_buffer('gamma', to_torch(gamma))
+        self.register_buffer('gamma_prev', to_torch(gamma_prev))
 
         # calculations for diffusion q(x_t | x_{t-1}) and others
         self.register_buffer('sqrt_alphas_cumprod',
-                             to_torch(np.sqrt(alphas_cumprod)))
+                             to_torch(np.sqrt(gamma)))
         self.register_buffer('sqrt_one_minus_alphas_cumprod',
-                             to_torch(np.sqrt(1. - alphas_cumprod)))
+                             to_torch(np.sqrt(1. - gamma)))
         self.register_buffer('log_one_minus_alphas_cumprod',
-                             to_torch(np.log(1. - alphas_cumprod)))
-        self.register_buffer('sqrt_recip_alphas_cumprod',
-                             to_torch(np.sqrt(1. / alphas_cumprod)))
-        self.register_buffer('sqrt_recipm1_alphas_cumprod',
-                             to_torch(np.sqrt(1. / alphas_cumprod - 1)))
+                             to_torch(np.log(1. - gamma)))
+        self.register_buffer('sqrt_recip_gamma',
+                             to_torch(np.sqrt(1. / gamma)))
+        self.register_buffer('sqrt_recipm1_gamma',
+                             to_torch(np.sqrt(1. / gamma - 1)))
 
         # calculations for posterior q(x_{t-1} | x_t, x_0)
-        posterior_variance = betas * (1. - alphas_cumprod_prev) / (1. - alphas_cumprod)
+        posterior_variance = betas * (1. - gamma_prev) / (1. - gamma)
         # above: equal to 1. / (1. / (1. - alpha_cumprod_tm1) + alpha_t / beta_t)
         self.register_buffer('posterior_variance', to_torch(posterior_variance))
         # below: log calculation clipped because the posterior variance is 0 at the beginning of the diffusion chain
         self.register_buffer('posterior_log_variance_clipped', to_torch(
             np.log(np.maximum(posterior_variance, 1e-20))))
         self.register_buffer('posterior_mean_coef1', to_torch(
-            betas * np.sqrt(alphas_cumprod_prev) / (1. - alphas_cumprod)))
+            betas * np.sqrt(gamma_prev) / (1. - gamma)))
         self.register_buffer('posterior_mean_coef2', to_torch(
-            (1. - alphas_cumprod_prev) * np.sqrt(alphas) / (1. - alphas_cumprod)))
+            (1. - gamma_prev) * np.sqrt(alphas) / (1. - gamma)))
 
-    def predict_start_from_noise(self, x_t, t, noise):
-        return self.sqrt_recip_alphas_cumprod[t] * x_t - \
-            self.sqrt_recipm1_alphas_cumprod[t] * noise
+    def predict_start_from_noise(self, x_t, t, noise): #predict y0
+        return self.sqrt_recip_gamma[t] * x_t - \
+            self.sqrt_recipm1_gamma[t] * noise
 
     def q_posterior(self, x_start, x_t, t):
         posterior_mean = self.posterior_mean_coef1[t] * \
@@ -160,7 +163,7 @@ class GaussianDiffusion(nn.Module):
     def p_mean_variance(self, x, t, clip_denoised: bool, condition_x=None):
         batch_size = x.shape[0]
         noise_level = torch.FloatTensor(
-            [self.sqrt_alphas_cumprod_prev[t+1]]).repeat(batch_size, 1).to(x.device)
+            [self.sqrt_gamma_prev[t+1]]).repeat(batch_size, 1).to(x.device)
         if condition_x is not None:
             x_recon = self.predict_start_from_noise(
                 x, t=t, noise=self.denoise_fn(torch.cat([condition_x, x], dim=1), noise_level))
@@ -240,8 +243,8 @@ class GaussianDiffusion(nn.Module):
         t = np.random.randint(1, self.num_timesteps + 1)
         continuous_sqrt_alpha_cumprod = torch.FloatTensor(
             np.random.uniform(
-                self.sqrt_alphas_cumprod_prev[t-1],
-                self.sqrt_alphas_cumprod_prev[t],
+                self.sqrt_gamma_prev[t-1],
+                self.sqrt_gamma_prev[t],
                 size=b
             )
         ).to(x_start.device)

@@ -1,5 +1,5 @@
 {
-    "name": "sr_microCT_patch",
+    "name": "sr_patch",
     "phase": "val", // train or val
     "gpu_ids": [
         0
@@ -10,7 +10,7 @@
         "results": "results",
         "checkpoint": "checkpoint",
         // "resume_state": null
-        "resume_state": "experiments/sr_microCT_patch_230112_140212/checkpoint/I100000_E3334" //pretrain model or training state
+        "resume_state": "experiments/sr_patch_64_230203_072414/checkpoint/I62000_E2067" //pretrain model or training state
     },
     "datasets": {
         "train": {
@@ -44,7 +44,6 @@
     },
     "model": {
         "which_model_G": "sr3", // use the ddpm or sr3 network structure
-        "finetune_norm": false,
         "unet": {
             "in_channel": 2,
             "out_channel": 1,
