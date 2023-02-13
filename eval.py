@@ -35,7 +35,7 @@ if __name__ == "__main__":
                 'experiments/sr_microCT_patch_val_230206_012438/results',
                 'experiments/sr_sam_dan/my_results']
 
-    result_path = './experiments/eval2/'
+    result_path = './experiments/eval_without_log_pow2_dpow/'
     result_path1 = result_path + 'result'
     result_path2 = result_path + 'spect'
     os.makedirs(result_path, exist_ok=True)
@@ -101,7 +101,7 @@ if __name__ == "__main__":
             Metrics.save_mhd(lr_patch, '{}/0_{}_lr.mhd'.format(result_path1, idx))
             Metrics.save_mhd(hr_patch, '{}/0_{}_hr.mhd'.format(result_path1, idx))
             Metrics.save_mhd(sr_patch, '{}/{}_{}sr.mhd'.format(result_path1, ipx, idx))
-            # idx+=1
+            idx+=1
         comp_hr.append(hr_imgs)
         comp_sr.append(sr_imgs)
         comp_lr.append(lr_imgs)
@@ -124,8 +124,6 @@ if __name__ == "__main__":
                 psnr = Metrics.calculate_psnr_mask(hr_imgs[i], sr_imgs[i], mask_imgs[i])
                 ssim = Metrics.calculate_ssim_mask(hr_imgs[i], sr_imgs[i], mask_imgs[i])
                 zncc = Metrics.calc_zncc(hr_imgs[i], sr_imgs[i])
-                diff_spe_const, diff_spe, sr_spe, hr_spe = Metrics.calc_fft_domain(hr_imgs[i], sr_imgs[i])
-                result = {"PSNR": psnr, "SSIM": ssim, "ZNCC": zncc, "MASK":mask_list_path[m_i], 'MAE-Power':diff_spe_const}
 
                 h, w = hr_imgs[i].shape
                 size = 256
@@ -134,59 +132,19 @@ if __name__ == "__main__":
                 center_y = h // 2
                 center_x = w // 2
 
-                hr_fft = hr_imgs[i][center_y-size:center_y+size, center_x-size:center_x+size].astype(np.float32)
-                sr_fft = sr_imgs[i][center_y-size:center_y+size, center_x-size:center_x+size].astype(np.float32)
-                hr_fft = (hr_fft - hr_fft.min()) / (hr_fft.max() - hr_fft.min())
-                sr_fft = (sr_fft - sr_fft.min()) / (sr_fft.max() - sr_fft.min())
-                hr_fft = hr_fft * 2 - 1
-                sr_fft = sr_fft * 2 - 1
+                hr_org = hr_imgs[i][center_y-size:center_y+size, center_x-size:center_x+size].astype(np.float32)
+                sr_org = sr_imgs[i][center_y-size:center_y+size, center_x-size:center_x+size].astype(np.float32)
+                lr_org = lr_imgs[i][center_y-size:center_y+size, center_x-size:center_x+size].astype(np.float32)
+                diff_spe_const, diff_spe, sr_spe, hr_spe = Metrics.calc_fft_domain(hr_org, sr_org)
+                result = {"PSNR": psnr, "SSIM": ssim, "ZNCC": zncc, "MASK":mask_list_path[m_i], 'MAE-Power':diff_spe_const}
 
-                f_hr = np.fft.fftn(hr_fft)
-                f_sr = np.fft.fftn(sr_fft)
-                fshift_hr = np.fft.fftshift(f_hr)
-                fshift_sr = np.fft.fftshift(f_sr)
-
-                magnitude_spectrum_hr = 20 * np.log(np.abs(fshift_hr))
-                magnitude_spectrum_sr = 20 * np.log(np.abs(fshift_sr))
-
-                data = np.mean(magnitude_spectrum_hr, axis=1)[size:]
-                average_hr = np.convolve(data, np.ones(10) / 10, mode='valid')
-                data = np.mean(magnitude_spectrum_sr, axis=1)[size:]
-                average_sr = np.convolve(data, np.ones(10) / 10, mode='valid')
-
-                ix = 5
-                if i == ix and m_i == 0:
-                    if i == ix and m_i == 0 and j == 0:
-                        plt.plot(average_hr, label='hr_spect', linewidth=1)
-                    plt.plot(average_sr, label='sr_spect{}'.format(j+1), linewidth=1)
-                    plt.legend()
-                    plt.xlabel("Frequency")
-                    plt.ylabel("Normalized Power Spectrum")
-                    plt.title("Frequency Spectrum")
-                    plt.savefig("{}/frequency_spectrum{}.png".format(result_path, i))
+                Metrics.save_mhd(hr_org, '{}/0_{}hr_org.mhd'.format(result_path2, i))
+                Metrics.save_mhd(lr_org, '{}/0_{}lr_org.mhd'.format(result_path2, i))
+                Metrics.save_mhd(sr_org, '{}/{}_{}sr_org.mhd'.format(result_path2, j, i))
 
                 results.append(result)
                 print('Image:{}, PSNR:{:.4f}, SSIM:{:.4f}, ZNCC:{:.4f}'.format(i, psnr, ssim, zncc))
 
-                def array2sitk(arr, spacing=[], origin=[]):
-                    if not len(spacing) == arr.ndim and len(origin) == arr.ndim:
-                        print("Dimension Error")
-                        quit()
-                    sitkImg = sitk.GetImageFromArray(arr)
-                    sitkImg.SetSpacing(spacing)
-                    sitkImg.SetOrigin(origin)
-                    return sitkImg
-
-                power_spe = array2sitk(magnitude_spectrum_hr, [1,1], [0,0])
-                pow_image = array2sitk(magnitude_spectrum_sr, [1,1], [0,0])
-                diffSpeImage = array2sitk(diff_spe, [1,1], [0,0])
-                hr_spe_img = array2sitk(hr_spe, [1,1], [0,0])
-                sr_spe_img = array2sitk(sr_spe, [1,1], [0,0])
-                sitk.WriteImage(pow_image, '{}/{}-{}_sr_pow.mhd'.format(result_path2, j, i))
-                sitk.WriteImage(power_spe, '{}/0-{}_pow.mhd'.format(result_path2, i))
-                sitk.WriteImage(diffSpeImage, '{}/{}-{}-diff_power_spe.mhd'.format(result_path2, j, i))
-                sitk.WriteImage(hr_spe_img, '{}/0-{}-hr_spe.mhd'.format(result_path2, i))
-                sitk.WriteImage(sr_spe_img, '{}/{}-{}-sr_spe.mhd'.format(result_path2, j, i))
                 avg_psnr += psnr
                 avg_ssim += ssim
                 avg_zncc += zncc

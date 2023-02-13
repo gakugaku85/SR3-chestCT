@@ -256,7 +256,41 @@ def calc_fft_domain(gt, input):
     img_freq = np.abs(imgFreqs)
     gt_freq = np.abs(gtFreqs)
 
-    diff_spe = np.abs((np.abs(gtFreqs) ** 2)-(np.abs(imgFreqs) ** 2))
+    diff_spe = np.abs((gt_freq**2)-(img_freq)**2)
     diff_spe_const = np.mean(diff_spe)
 
     return diff_spe_const, diff_spe, img_freq, gt_freq
+
+def mean_values_by_distance(image, num_pixels):
+    # 画像の高さと幅
+    height, width = image.shape
+
+    center_x = width // 2
+    center_y = height // 2
+    values = []
+    for i in range(0, num_pixels):
+        sum_values = 0
+        pixels = 0
+        for y in range(height):
+            for x in range(width):
+                distance = np.maximum(np.abs(x - center_x), np.abs(y - center_y))
+                if distance == i:
+                    sum_values += image[y, x].mean()
+                    pixels += 1
+        if pixels == 0:
+            mean_value = 0
+        else:
+            mean_value = sum_values / pixels
+        values.append(mean_value)
+
+    return values
+
+# def mean_value_new(img, num_pixels):
+#     height, width = img.shape
+
+#     center_x = width // 2
+#     center_y = height // 2
+
+#     value = []
+
+#     for i in range(height):
