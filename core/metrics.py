@@ -5,7 +5,7 @@ import cv2
 from torchvision.utils import make_grid
 import SimpleITK as sitk
 from scipy.fftpack import fftn
-
+from tqdm import tqdm
 
 def tensor2img(tensor, out_type=np.uint8, min_max=(-1, 1)):
     '''
@@ -112,7 +112,11 @@ def calculate_psnr_mask(gt, input, mask):
     masked_im1 = gt * mask_slice
     masked_im1 = masked_im1.astype(np.float64)
 
-    square_errors = (masked_im1 - input) ** 2
+    masked_im2 = input * mask_slice
+    masked_im2 = masked_im2.astype(np.float64)
+
+    square_errors = (masked_im1 - masked_im2) ** 2
+
     masked_square_errors = np.ma.array(square_errors, mask=mask_array)
     masked_mse = np.mean(masked_square_errors)
     if masked_mse == 0:
@@ -194,6 +198,9 @@ def calculate_ssim_mask(gt, input, mask):
 
     masked_im1 = gt * mask_slice
     masked_im1 = masked_im1.astype(np.float64)
+
+    masked_im2 = input * mask_slice
+    masked_im2 = masked_im2.astype(np.float64)
     """calculate SSIM
     the same outputs as MATLAB's
     gt, input: [0, 255]
@@ -201,23 +208,9 @@ def calculate_ssim_mask(gt, input, mask):
     if not gt.shape == input.shape:
         raise ValueError("Input images must have the same dimensions.")
     if gt.ndim == 2:
-        return ssim_mask(masked_im1, input, mask_array)
+        return ssim_mask(masked_im1, masked_im2, mask_array)
     else:
         raise ValueError("Wrong input image dimensions.")
-
-def zncc(gt, input):
-    # 画像をfloat64型に変換
-    gt = gt.astype(np.float64)
-    input = input.astype(np.float64)
-    # 画像の平均値を計算
-    mean1 = np.mean(gt)
-    mean2 = np.mean(input)
-    # 画像を平均値0に正規化
-    gt = gt - mean1
-    input = input - mean2
-    # 相関係数を計算
-    corr = np.sum(gt * input) / (np.sqrt(np.sum(gt ** 2)) * np.sqrt(np.sum(input ** 2)))
-    return corr
 
 def calc_zncc(gt, input):
     """
@@ -233,20 +226,6 @@ def calc_zncc(gt, input):
         return 0
     return nom/den
 
-def d_power(gt, input):
-    # 画像をfloat64型に変換
-    gt = gt.astype(np.float64)
-    input = input.astype(np.float64)
-    # 画像を高速フーリエ変換
-    f1 = np.fft.fft2(gt)
-    f2 = np.fft.fft2(input)
-    # 高周波成分の強さを計算
-    high_pass1 = np.abs(f1) ** 2
-    high_pass2 = np.abs(f2) ** 2
-    # D-powerを計算
-    dp = np.sum(high_pass2) / np.sum(high_pass1)
-    return dp
-
 def calc_fft_domain(gt, input):
     imgFreqs = np.fft.fftn(input)
     gtFreqs = np.fft.fftn(gt)
@@ -261,14 +240,38 @@ def calc_fft_domain(gt, input):
 
     return diff_spe_const, diff_spe, img_freq, gt_freq
 
+def calc_fft_domain_mask(gt, input, mask):
+    mask_slice = mask / 255
+    mask_array_boolean = np.ma.make_mask(mask_slice)
+    mask_array = np.invert(mask_array_boolean)
+
+    input = input * mask_slice
+    input = input.astype(np.float64)
+    # gt = gt * mask_slice
+    # gt = gt.astype(np.float64)
+
+    imgFreqs = np.fft.fftn(input)
+    gtFreqs = np.fft.fftn(gt)
+    imgFreqs = np.fft.fftshift(imgFreqs)
+    gtFreqs = np.fft.fftshift(gtFreqs)
+
+    img_freq = np.abs(imgFreqs)
+    gt_freq = np.abs(gtFreqs)
+
+    diff_spe = np.abs((gt_freq**2)-(img_freq**2))
+    diff_spe_const = np.mean(diff_spe)
+
+    return diff_spe_const, diff_spe, img_freq, gt_freq
+
 def mean_values_by_distance(image, num_pixels):
-    # 画像の高さと幅
     height, width = image.shape
 
     center_x = width // 2
     center_y = height // 2
     values = []
-    for i in range(0, num_pixels):
+    Nyquist_mean = []
+    sum_value_ny = 0
+    for i in tqdm(range(num_pixels), total=num_pixels):
         sum_values = 0
         pixels = 0
         for y in range(height):
@@ -281,9 +284,14 @@ def mean_values_by_distance(image, num_pixels):
             mean_value = 0
         else:
             mean_value = sum_values / pixels
+            # mean_value = sum_values
+        sum_value_ny += mean_value
         values.append(mean_value)
-
-    return values
+        if (i+1) % (num_pixels//4) == 0 and i != 0:
+            mean_value_ny = sum_value_ny / (num_pixels//4)
+            Nyquist_mean.append(mean_value_ny)
+            sum_value_ny = 0
+    return values, Nyquist_mean
 
 # def mean_value_new(img, num_pixels):
 #     height, width = img.shape

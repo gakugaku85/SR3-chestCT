@@ -49,6 +49,8 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     os.makedirs(args.out+'_1', exist_ok=True)
+    os.makedirs(args.out+'_2', exist_ok=True)
+    os.makedirs(args.out+'_3', exist_ok=True)
     os.makedirs(args.out+'_05', exist_ok=True)
     os.makedirs(args.out+'_E', exist_ok=True)
     os.makedirs(args.out+'_1_outside', exist_ok=True)
@@ -67,12 +69,16 @@ if __name__ == '__main__':
         print(np.max(image), np.min(image))
         img_bin_E = np.where((image > 0.5) & (image < 1), 255, 0)
         img_bin_1 = np.where(image > 1, 255, 0)
+        img_bin_2 = np.where(image > 2, 255, 0)
+        img_bin_3 = np.where(image > 3, 255, 0)
         img_bin_05 = np.where(image > 0.5, 255, 0)
 
         img_bin_rev = np.where(image < 1, 255, 0)
         img_outside = mask * img_bin_rev
 
         save_img(img_bin_1, '{}_1/{}_hr_bin1.png'.format(args.out, i))
+        save_img(img_bin_2, '{}_2/{}_hr_bin2.png'.format(args.out, i))
+        save_img(img_bin_3, '{}_3/{}_hr_bin3.png'.format(args.out, i))
         save_img(img_bin_05, '{}_05/{}_hr_bin1.png'.format(args.out, i))
         save_img(img_bin_E, '{}_E/{}_hr_bin1.png'.format(args.out, i))
         save_img(img_outside, '{}_1_outside/{}_hr_bin1.png'.format(args.out, i))
