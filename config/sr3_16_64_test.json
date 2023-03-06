@@ -1,5 +1,5 @@
 {
-    "name": "sr_patch",
+    "name": "sr_patch_64",
     "phase": "val", // train or val
     "gpu_ids": [
         0
@@ -99,14 +99,9 @@
         "optimizer": {
             "type": "adam",
             "lr": 1e-4
-        },
-        "ema_scheduler": { // not used now
-            "step_start_ema": 5000,
-            "update_ema_every": 1,
-            "ema_decay": 0.9999
         }
     },
     "wandb": {
-        "project": "sr_microCT_patch"
+        "project": "sr_patch_64"
     }
 }
