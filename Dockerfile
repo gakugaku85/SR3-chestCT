@@ -17,7 +17,7 @@ RUN apt-get update --fix-missing && \
     apt-get install -y software-properties-common vim curl unzip htop openssh-server wget procps
 
 RUN pip3 install --upgrade pip setuptools
-RUN pip3 install --no-cache-dir joblib numpy tqdm pillow scipy joblib matplotlib scikit-image argparse SimpleITK pyyaml pandas pydicom scikit-learn
+RUN pip3 install --no-cache-dir joblib numpy tqdm pillow scipy joblib matplotlib scikit-image argparse SimpleITK pyyaml pandas pydicom scikit-learn natsort opencv-python-headless wandb lmdb tensorboardX
 RUN pip3 install torch==1.8.0+cu111 torchvision==0.9.0+cu111 torchaudio==0.8.0 -f https://download.pytorch.org/whl/torch_stable.html
 
 
