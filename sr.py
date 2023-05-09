@@ -100,7 +100,7 @@ if __name__ == "__main__":
                     break
                 diffusion.feed_data(train_data)
                 diffusion.optimize_parameters()
-                # recon_out = diffusion.print_train_result()
+                # recon_out = diffusion.print_train_result() #trainingの結果を出力
                 # recon_img = Metrics.tensor2mhd(recon_out)  # uint8
                 # Metrics.save_mhd(recon_img,'{}/{}_recon.mhd'.format(result_train_path, current_step))
                 if current_step % opt['train']['print_freq'] == 0:
