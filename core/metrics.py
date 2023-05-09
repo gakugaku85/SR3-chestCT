@@ -291,7 +291,7 @@ def mean_values_by_distance(image, num_pixels):
             mean_value_ny = sum_value_ny / (num_pixels//4)
             Nyquist_mean.append(mean_value_ny)
             sum_value_ny = 0
-    return values, Nyquist_mean
+    return values[96:], Nyquist_mean
 
 # def mean_value_new(img, num_pixels):
 #     height, width = img.shape

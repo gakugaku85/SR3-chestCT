@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-p', '--path', type=str,
-                        default='experiments/sr_sam_dan/my_results')
+                        default='experiments/fft_eval/')
     args = parser.parse_args()
 
     mask_root_path = "../dataset/mask_1792"
@@ -33,10 +33,10 @@ if __name__ == "__main__":
         mask_list.append(mask_imgs)
 
     test_paths =['experiments/sr_microCT_patch_val_230206_012720/results',
-                'experiments/sr_microCT_patch_val_230206_012438/results',
-                'experiments/sr_sam_dan/my_results']
+                'experiments/sr_microCT_patch_val_230206_012438/results']
+                # 'experiments/sr_sam_dan/my_results']
 
-    result_path = './experiments/eval_fft82/'
+    result_path = './experiments/eval_fft_3f-4f/'
     result_path1 = result_path + 'result'
     result_path2 = result_path + 'spect'
     os.makedirs(result_path, exist_ok=True)
@@ -91,16 +91,22 @@ if __name__ == "__main__":
             pow_sr = np.abs(np.fft.fftshift(np.fft.fftn(sr_fft)))**2
             pow_lr = np.abs(np.fft.fftshift(np.fft.fftn(lr_fft)))**2
 
-            norm_pow_spe_hr = 10 * np.log(pow_hr)
-            norm_pow_spe_sr = 10 * np.log(pow_sr)
-            norm_pow_spe_lr = 10 * np.log(pow_lr)
+            pow_spe_hr = 10 * np.log(pow_hr)
+            pow_spe_sr = 10 * np.log(pow_sr)
+            pow_spe_lr = 10 * np.log(pow_lr)
 
             if path_i == 0:
-                freq_hr, ny_hr = Metrics.mean_values_by_distance(norm_pow_spe_hr, size)
-                # freq_lr = Metrics.mean_values_by_distance(norm_pow_spe_lr, size)
-            freq_sr, ny_sr = Metrics.mean_values_by_distance(norm_pow_spe_sr, size)
+                freq_hr, ny_hr = Metrics.mean_values_by_distance(pow_spe_hr, size)
+                # freq_lr = Metrics.mean_values_by_distance(pow_spe_lr, size)
+            print(len(freq_hr), len(ny_hr))
+            freq_sr, ny_sr = Metrics.mean_values_by_distance(pow_spe_sr, size)
+            
 
-            # ny_sub.append([np.abs(a-b) for a, b in zip(ny_hr, ny_sr)])
+            ny_sub.append([np.abs(a-b) for a, b in zip(ny_hr, ny_sr)]) #ナイキスト周波数までの差分を計算
+            if path_i == 0:
+                plt.plot(freq_hr, label='hr_spect', linewidth=1)
+                # plt.plot(freq_lr, label='lr_spect', linewidth=1) #lrを表示する場合
+            plt.plot(freq_sr, label='sr_spect{}'.format(path_i+1), linewidth=1)
             
             # print([np.abs(a-b) for a, b in zip(ny_hr, ny_sr)])
 
@@ -108,15 +114,8 @@ if __name__ == "__main__":
             #     freq_hr, ny_hr= Metrics.mean_values_by_distance(pow_hr,size)
             #     # freq_lr = Metrics.mean_values_by_distance(pow_lr, size)
             # freq_sr, ny_sr = Metrics.mean_values_by_distance(pow_sr, size)
-
-            freq_sub_srhr = [np.abs(a - b) for a, b in zip(freq_hr, freq_sr)]
-            plt.plot(freq_sub_srhr, label='sr_sub_spect{}'.format(path_i+1), linewidth=1)
-
-            # if path_i == 0:
-            #     plt.plot(freq_hr, label='hr_spect', linewidth=1)
-            #     # plt.plot(freq_lr, label='lr_spect', linewidth=1) #lrを表示する場合
-            # plt.plot(freq_sr, label='sr_spect{}'.format(path_i+1), linewidth=1)
-
+            # freq_sub_srhr = [np.abs(a - b) for a, b in zip(freq_hr, freq_sr)]
+            # plt.plot(freq_sub_srhr, label='sr_sub_spect{}'.format(path_i+1), linewidth=1)
 
             def array2sitk(arr, spacing=[], origin=[]):
                 if not len(spacing) == arr.ndim and len(origin) == arr.ndim:
@@ -143,10 +142,11 @@ if __name__ == "__main__":
         plt.grid()
         plt.yscale('log')
         plt.xlabel("Frequency")
-        plt.ylabel("Normalized Power Spectrum")
+        plt.ylabel("Power Spectrum")
         plt.title("Frequency Spectrum")
-        plt.savefig("{}/frequency_spectrum{}sum.png".format(result_path, img_i))
+        plt.savefig("{}/frequency_spectrum{}sum.png".format(result_path1, img_i))
         plt.clf()
 
         df = pd.DataFrame(data=ny_sub)
-        df.to_csv(result_path+"nyquist{}.csv".format(img_i), index=False)
+        df.to_csv(result_path1+"/nyquist{}.csv".format(img_i), index=False)
+        print("finish{}".format(img_i))
