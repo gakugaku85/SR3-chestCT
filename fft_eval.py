@@ -33,10 +33,12 @@ if __name__ == "__main__":
         mask_list.append(mask_imgs)
 
     test_paths =['experiments/sr_microCT_patch_val_230206_012720/results',
-                'experiments/sr_microCT_patch_val_230206_012438/results']
-                # 'experiments/sr_sam_dan/my_results']
+                'experiments/sr_microCT_patch_val_230206_012438/results',
+                'experiments/sr_sam_dan/my_results']
+    
+    sr_title = ['ours(original)', 'ours(sobel weighted)', 'sr_RCAN[3]']
 
-    result_path = './experiments/eval_fft_3f-4f/'
+    result_path = './experiments/eval_fft_2/'
     result_path1 = result_path + 'result'
     result_path2 = result_path + 'spect'
     os.makedirs(result_path, exist_ok=True)
@@ -76,9 +78,17 @@ if __name__ == "__main__":
 
             diff_spe_const, diff_spe, sr_spe, hr_spe = Metrics.calc_fft_domain(hr_org, sr_org)
 
-            Metrics.save_mhd(hr_org, '{}/0_{}hr_org.mhd'.format(result_path2, img_i))
-            Metrics.save_mhd(lr_org, '{}/0_{}lr_org.mhd'.format(result_path2, img_i))
-            Metrics.save_mhd(sr_org, '{}/{}_{}sr_org.mhd'.format(result_path2, path_i, img_i))
+            # hr_sub_sr = np.abs(img_HR - img_SR)
+            hr_sub_sr = np.sqrt((img_HR - img_SR)**2)
+            #hr_sub_lr = np.abs(img_HR - img_LR)
+            hr_sub_lr = np.sqrt((img_HR - img_LR)**2)
+
+            Metrics.save_mhd(hr_sub_sr, '{}/0_{}hr_sub_sr.mhd'.format(result_path2, img_i))
+            Metrics.save_mhd(hr_sub_lr, '{}/0_{}hr_sub_lr.mhd'.format(result_path2, img_i))
+
+            Metrics.save_mhd(img_HR, '{}/0_{}hr_org.mhd'.format(result_path2, img_i))
+            Metrics.save_mhd(img_LR, '{}/0_{}lr_org.mhd'.format(result_path2, img_i))
+            Metrics.save_mhd(img_SR, '{}/{}_{}sr_org.mhd'.format(result_path2, path_i, img_i))
 
             hr_fft = (hr_org - hr_org.min()) / (hr_org.max() - hr_org.min())
             sr_fft = (sr_org - sr_org.min()) / (sr_org.max() - sr_org.min())
@@ -95,58 +105,57 @@ if __name__ == "__main__":
             pow_spe_sr = 10 * np.log(pow_sr)
             pow_spe_lr = 10 * np.log(pow_lr)
 
-            if path_i == 0:
-                freq_hr, ny_hr = Metrics.mean_values_by_distance(pow_spe_hr, size)
-                # freq_lr = Metrics.mean_values_by_distance(pow_spe_lr, size)
-            print(len(freq_hr), len(ny_hr))
-            freq_sr, ny_sr = Metrics.mean_values_by_distance(pow_spe_sr, size)
+        #     if path_i == 0:
+        #         freq_hr, ny_hr = Metrics.mean_values_by_distance(pow_spe_hr, size)
+        #         # freq_lr = Metrics.mean_values_by_distance(pow_spe_lr, size) #lrを表示する場合
+        #     freq_sr, ny_sr = Metrics.mean_values_by_distance(pow_spe_sr, size)
             
 
-            ny_sub.append([np.abs(a-b) for a, b in zip(ny_hr, ny_sr)]) #ナイキスト周波数までの差分を計算
-            if path_i == 0:
-                plt.plot(freq_hr, label='hr_spect', linewidth=1)
-                # plt.plot(freq_lr, label='lr_spect', linewidth=1) #lrを表示する場合
-            plt.plot(freq_sr, label='sr_spect{}'.format(path_i+1), linewidth=1)
+        #     ny_sub.append([np.abs(a-b) for a, b in zip(ny_hr, ny_sr)]) #ナイキスト周波数までの差分を計算
+        #     if path_i == 0:
+        #         plt.plot(freq_hr, label='GT', linewidth=1)
+        #         # plt.plot(freq_lr, label='lr_spect', linewidth=1) #lrを表示する場合
+        #     plt.plot(freq_sr, label=sr_title[path_i], linewidth=1)
             
-            # print([np.abs(a-b) for a, b in zip(ny_hr, ny_sr)])
+        #     # print([np.abs(a-b) for a, b in zip(ny_hr, ny_sr)])
 
-            # if path_i == 0: #差分を表示する場合
-            #     freq_hr, ny_hr= Metrics.mean_values_by_distance(pow_hr,size)
-            #     # freq_lr = Metrics.mean_values_by_distance(pow_lr, size)
-            # freq_sr, ny_sr = Metrics.mean_values_by_distance(pow_sr, size)
-            # freq_sub_srhr = [np.abs(a - b) for a, b in zip(freq_hr, freq_sr)]
-            # plt.plot(freq_sub_srhr, label='sr_sub_spect{}'.format(path_i+1), linewidth=1)
+        #     # if path_i == 0: #差分を表示する場合
+        #     #     freq_hr, ny_hr= Metrics.mean_values_by_distance(pow_hr,size)
+        #     #     # freq_lr = Metrics.mean_values_by_distance(pow_lr, size)
+        #     # freq_sr, ny_sr = Metrics.mean_values_by_distance(pow_sr, size)
+        #     # freq_sub_srhr = [np.abs(a - b) for a, b in zip(freq_hr, freq_sr)]
+        #     # plt.plot(freq_sub_srhr, label='sr_sub_spect{}'.format(path_i+1), linewidth=1)
 
-            def array2sitk(arr, spacing=[], origin=[]):
-                if not len(spacing) == arr.ndim and len(origin) == arr.ndim:
-                    print("Dimension Error")
-                    quit()
-                sitkImg = sitk.GetImageFromArray(arr)
-                sitkImg.SetSpacing(spacing)
-                sitkImg.SetOrigin(origin)
-                return sitkImg
+        #     def array2sitk(arr, spacing=[], origin=[]):
+        #         if not len(spacing) == arr.ndim and len(origin) == arr.ndim:
+        #             print("Dimension Error")
+        #             quit()
+        #         sitkImg = sitk.GetImageFromArray(arr)
+        #         sitkImg.SetSpacing(spacing)
+        #         sitkImg.SetOrigin(origin)
+        #         return sitkImg
 
-            pow_img_hr = array2sitk(pow_hr, [1,1], [0,0])
-            pow_img_sr = array2sitk(pow_sr, [1,1], [0,0])
-            pow_img_lr = array2sitk(pow_lr, [1,1], [0,0])
-            diffSpeImage = array2sitk(diff_spe, [1,1], [0,0])
-            hr_spe_img = array2sitk(hr_spe, [1,1], [0,0])
-            sr_spe_img = array2sitk(sr_spe, [1,1], [0,0])
-            sitk.WriteImage(pow_img_sr, '{}/{}-{}_sr_pow.mhd'.format(result_path2, path_i, img_i))
-            sitk.WriteImage(pow_img_hr, '{}/0-{}_hr_pow.mhd'.format(result_path2, img_i))
-            sitk.WriteImage(pow_img_lr, '{}/0-{}_lr_pow.mhd'.format(result_path2, img_i))
-            sitk.WriteImage(diffSpeImage, '{}/{}-{}-diff_power_spe.mhd'.format(result_path2, path_i, img_i))
-            sitk.WriteImage(hr_spe_img, '{}/0-{}-hr_spe.mhd'.format(result_path2, img_i))
-            sitk.WriteImage(sr_spe_img, '{}/{}-{}-sr_spe.mhd'.format(result_path2, path_i, img_i))
-        plt.legend()
-        plt.grid()
-        plt.yscale('log')
-        plt.xlabel("Frequency")
-        plt.ylabel("Power Spectrum")
-        plt.title("Frequency Spectrum")
-        plt.savefig("{}/frequency_spectrum{}sum.png".format(result_path1, img_i))
-        plt.clf()
+        #     pow_img_hr = array2sitk(pow_hr, [1,1], [0,0])
+        #     pow_img_sr = array2sitk(pow_sr, [1,1], [0,0])
+        #     pow_img_lr = array2sitk(pow_lr, [1,1], [0,0])
+        #     diffSpeImage = array2sitk(diff_spe, [1,1], [0,0])
+        #     hr_spe_img = array2sitk(hr_spe, [1,1], [0,0])
+        #     sr_spe_img = array2sitk(sr_spe, [1,1], [0,0])
+        #     sitk.WriteImage(pow_img_sr, '{}/{}-{}_sr_pow.mhd'.format(result_path2, path_i, img_i))
+        #     sitk.WriteImage(pow_img_hr, '{}/0-{}_hr_pow.mhd'.format(result_path2, img_i))
+        #     sitk.WriteImage(pow_img_lr, '{}/0-{}_lr_pow.mhd'.format(result_path2, img_i))
+        #     sitk.WriteImage(diffSpeImage, '{}/{}-{}-diff_power_spe.mhd'.format(result_path2, path_i, img_i))
+        #     sitk.WriteImage(hr_spe_img, '{}/0-{}-hr_spe.mhd'.format(result_path2, img_i))
+        #     sitk.WriteImage(sr_spe_img, '{}/{}-{}-sr_spe.mhd'.format(result_path2, path_i, img_i))
+        # plt.legend()
+        # plt.grid()
+        # plt.yscale('log')
+        # plt.xlabel("harmonic num.")
+        # plt.ylabel("Power Spectrum")
+        # plt.title("Frequency Spectrum")
+        # plt.savefig("{}/frequency_spectrum{}sum.png".format(result_path1, img_i))
+        # plt.clf()
 
-        df = pd.DataFrame(data=ny_sub)
-        df.to_csv(result_path1+"/nyquist{}.csv".format(img_i), index=False)
-        print("finish{}".format(img_i))
+        # df = pd.DataFrame(data=ny_sub)
+        # df.to_csv(result_path1+"/nyquist{}.csv".format(img_i), index=False)
+        # print("finish{}".format(img_i))
