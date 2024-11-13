@@ -7,6 +7,12 @@ from functools import partial
 import numpy as np
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+from gudhi.wasserstein import wasserstein_distance
+# from torch_topological.nn import CubicalComplex
+# from torch_topological.nn import WassersteinDistance
+import gudhi as gd
+import multiprocessing
+from skimage.filters import frangi
 
 
 def _warmup_beta(linear_start, linear_end, n_timestep, warmup_frac):
@@ -61,6 +67,83 @@ def default(val, d):
         return val
     return d() if isfunction(d) else d
 
+def match_cofaces_with_gudhi(image_data, cofaces):
+    height, width = image_data.shape
+    result = []
+
+    for dim, pairs in enumerate(cofaces[0]):
+        for birth, death in pairs:
+            birth_y, birth_x = np.unravel_index(birth, (height, width))
+            death_y, death_x = np.unravel_index(death, (height, width))
+            pers = (1.00-image_data.ravel()[birth], 1.00-image_data.ravel()[death])
+            result.append((dim, pers,((birth_y, birth_x), (death_y, death_x))))
+
+    for dim, births in enumerate(cofaces[1]):
+        for birth in births:
+            birth_y, birth_x = np.unravel_index(birth, (height, width))
+            pers = (1.00-image_data.ravel()[birth], 1.0)
+            result.append((dim, pers, ((birth_y, birth_x), None)))
+
+    return result
+
+def persistent_homology(image_data, weight_threshold=0.01, hr_or_sr="hr"):
+    """Computes and visualizes the persistent homology for the given image data."""
+    cc = gd.CubicalComplex(
+        dimensions=image_data.shape, top_dimensional_cells=1 - image_data.flatten()
+    )
+    cc.persistence()
+    cofaces = cc.cofaces_of_persistence_pairs()
+    result = match_cofaces_with_gudhi(image_data=image_data, cofaces=cofaces)
+
+    frangi_img = frangi(1-image_data)
+    new_result = []
+
+    for dim, (birth, death) , coordinates in result:
+        if dim == 1:
+            continue
+        distance = np.abs(birth - death) / np.sqrt(2)
+        weight = distance * frangi_img[coordinates[0][0], coordinates[0][1]]
+
+        if weight > weight_threshold:
+            new_result.append([birth, death])
+
+    return np.array(new_result)
+
+class WassersteinDistanceLoss(nn.Module):
+    def __init__(self):
+        super(WassersteinDistanceLoss, self).__init__()
+
+    def process_image(self, hr_img, sr_img, index, losses):
+
+        hr_connect = persistent_homology(hr_img[0], hr_or_sr="hr")
+        sr_connect = persistent_homology(sr_img[0], hr_or_sr="sr")
+        losses[index] = wasserstein_distance(hr_connect, sr_connect)
+
+    def forward(self, hr, sr):
+        num_images = hr.shape[0]
+
+        # multiprocessing.Managerを使って共有リストを作成
+        with multiprocessing.Manager() as manager:
+            # 共有リストを作成
+            losses = manager.list([None] * num_images)
+            processes = []
+
+            # 各プロセスを開始
+            for i in range(num_images):
+                hr_img = hr[i].detach().float().cpu().numpy()
+                sr_img = sr[i].detach().float().cpu().numpy()
+                process = multiprocessing.Process(target=self.process_image, args=(
+                    hr_img, sr_img, i, losses))
+                processes.append(process)
+                process.start()
+
+            # 全プロセスの終了を待つ
+            for process in processes:
+                process.join()
+
+            losses = [l for l in losses if l is not None]
+
+            return torch.tensor(sum(losses) / len(losses)) if len(losses) > 0 else torch.tensor(0.0)
 
 class GaussianDiffusion(nn.Module):
     def __init__(
@@ -69,7 +152,8 @@ class GaussianDiffusion(nn.Module):
         image_size,
         channels=3,
         loss_type='l1',
-        loss_name='sobel',
+        loss_name='wd',
+        under_step_wd_loss=2000,
         conditional=True,
         schedule_opt=None
     ):
@@ -80,6 +164,7 @@ class GaussianDiffusion(nn.Module):
         self.loss_type = loss_type
         self.loss_name = loss_name
         self.conditional = conditional
+        self.under_step_wd_loss = under_step_wd_loss
         if schedule_opt is not None:
             pass
             # self.set_new_noise_schedule(schedule_opt)
@@ -91,11 +176,13 @@ class GaussianDiffusion(nn.Module):
         elif self.loss_type == 'l2':
             self.loss_func = nn.MSELoss(reduction='sum').to(device)
             self.none_loss = nn.MSELoss(reduction='none').to(device)
+        elif self.loss_type == 'wd':
+            self.loss_func = nn.L1Loss(reduction='sum').to(device)
+            # self.loss_func2 = TopologicalWDLoss().to(device)
+            self.loss_wd = WassersteinDistanceLoss().to(device)
         else:
             raise NotImplementedError()
         # Sobelフィルタのカーネルを定義
-        self.sobel_x = torch.tensor([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=torch.float32).to(device)
-        self.sobel_y = torch.tensor([[1, 2, 1], [0, 0, 0], [-1, -2, -1]], dtype=torch.float32).to(device)
 
     def set_new_noise_schedule(self, schedule_opt, device):
         to_torch = partial(torch.tensor, dtype=torch.float32, device=device)
@@ -202,7 +289,7 @@ class GaussianDiffusion(nn.Module):
             shape = x.shape
             img = torch.randn(shape, device=device)
             ret_img = x
-            for i in  tqdm(reversed(range(0, self.num_timesteps)), desc='sampling loop time step', total=self.num_timesteps):
+            for i in tqdm(reversed(range(0, self.num_timesteps)), desc='sampling loop time step', total=self.num_timesteps):
                 img = self.p_sample(img, i, condition_x=x)
                 if i % sample_inter == 0:
                     ret_img = torch.cat([ret_img, img], dim=0)
@@ -234,11 +321,6 @@ class GaussianDiffusion(nn.Module):
     def p_losses(self, x_in, noise=None):
         x_start = x_in['HR']
 
-        sobel_x_image = F.conv2d(x_start, self.sobel_x.view(-1, 1, 3, 3), padding=1)
-        sobel_y_image = F.conv2d(x_start, self.sobel_y.view(-1, 1, 3, 3), padding=1)
-        # sobel_image = torch.abs(sobel_x_image) + torch.abs(sobel_y_image)
-        sobel_image = torch.sqrt(torch.pow(sobel_x_image, 2) + torch.pow(sobel_y_image, 2))
-
         [b, c, h, w] = x_start.shape
         t = np.random.randint(1, self.num_timesteps + 1)
         continuous_sqrt_alpha_cumprod = torch.FloatTensor(
@@ -259,20 +341,20 @@ class GaussianDiffusion(nn.Module):
         else:
             x_recon = self.denoise_fn(torch.cat([x_in['SR'], x_noisy], dim=1), continuous_sqrt_alpha_cumprod)
 
-        self.train_result = torch.cat([x_in['HR'][0], sobel_image[0]], dim=2)
-        sobel_image = sobel_image + 1
-
-        self.diff_loss = self.loss_func(noise, x_recon) #もともとの損失
-
-        mse_loss = self.none_loss(noise, x_recon)
-        self.sobel_diff_loss = (mse_loss * sobel_image).sum()#sobel_loss
-
-        if self.loss_name == 'sobel':
-            self.loss = self.sobel_diff_loss
-        elif self.loss_name == 'diff':
-            self.loss = self.diff_loss
-
-        return self.loss
+        self.origin_loss = self.loss_func(noise, x_recon)
+        if self.loss_name == 'wd':
+            self.wd_loss = torch.tensor(0.0).to(x_start.device)
+            if t < self.under_step_wd_loss:
+                denoise_img = self.predict_start_from_noise(x_noisy, t=t-1, noise=x_recon)
+                self.wd_loss = self.loss_wd(x_in['HR'], denoise_img)
+                # self.wd_loss = self.loss_func2(x_in['HR'], denoise_img)
+            loss = self.origin_loss + self.wd_loss
+            # print("wd loss: ", self.wd_loss)
+            # print("origin loss: ", self.origin_loss)
+            # print("total loss: ", loss)
+        elif self.loss_name == 'original':
+            loss = self.origin_loss
+        return loss
 
     def forward(self, x, *args, **kwargs):
         return self.p_losses(x, *args, **kwargs)
@@ -281,4 +363,7 @@ class GaussianDiffusion(nn.Module):
         return self.train_result
 
     def get_each_loss(self):
-        return self.diff_loss, self.sobel_diff_loss
+        if self.loss_name == 'wd':
+            return self.origin_loss, self.wd_loss
+        elif self.loss_name == 'original':
+            return self.origin_loss, torch.tensor(0.0).to(self.origin_loss.device)

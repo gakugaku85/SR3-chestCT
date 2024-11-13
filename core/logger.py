@@ -63,10 +63,10 @@ def parse(args):
 
     # debug
     if 'debug' in opt['name']:
-        opt['train']['val_freq'] = 5
+        opt['train']['val_freq'] = 100
         opt['train']['over_val'] = 0
         opt['train']['over_train_print'] = 100
-        opt['train']['print_freq'] = 50
+        opt['train']['print_freq'] = 2
         opt['train']['train_print_freq'] = 50
         opt['datasets']['train']['batch_size'] = 16
         opt['model']['beta_schedule']['train']['n_timestep'] = 2000
@@ -82,7 +82,7 @@ def parse(args):
         pass
     try:
         log_eval = args.log_eval
-        opt['log_eval'] = log_eval  
+        opt['log_eval'] = log_eval
     except:
         pass
     try:
@@ -91,7 +91,7 @@ def parse(args):
     except:
         pass
     opt['enable_wandb'] = enable_wandb
-    
+
     return opt
 
 

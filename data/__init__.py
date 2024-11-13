@@ -27,9 +27,10 @@ def create_dataloader(dataset, dataset_opt, phase):
 def create_dataset(dataset_opt, phase):
     '''create dataset'''
     mode = dataset_opt['mode']
-    files = glob(osp.join(dataset_opt['dataroot']+'/hr_0/*.mhd')) #スライスファイルの名前取得
-    file_paths = natsorted([file.split('/')[4] for file in files])
+    files = glob(osp.join(dataset_opt['dataroot']+'/hr/*.mhd')) #スライスファイルの名前取得
+    file_paths = natsorted([file.split('/')[-1] for file in files])
     # print(files)
+    # print(file_paths)
     from data.LRHR_dataset import LRHRDataset as D
     if phase == 'train':
         dataset = D(dataroot=dataset_opt['dataroot'],

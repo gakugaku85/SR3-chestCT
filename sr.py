@@ -76,7 +76,7 @@ if __name__ == "__main__":
         mask_imgs.append(mask)
         # print(mask_path)
     logger.info('Initial mask Finished')
-        
+
     # Train
     current_step = diffusion.begin_step
     current_epoch = diffusion.begin_epoch
@@ -184,7 +184,7 @@ if __name__ == "__main__":
 
                         if wandb_logger:
                             wandb_logger.log_image(
-                                f'validation_{idx}', 
+                                f'validation_{idx}',
                                 np.concatenate((fake_img, sr_img, hr_img), axis=1)
                             )
 

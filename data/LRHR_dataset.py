@@ -26,13 +26,13 @@ class LRHRDataset(Dataset):
         hr_paths = []
         sr_paths = []
 
-        self.hr_imgs = [] 
+        self.hr_imgs = []
         self.sr_imgs = []
 
         if split == 'train':
             for dataroot_ in dataroot.split():
-                sr_paths.append(Util.get_paths_from_mhds('{}/nonzero/sr_0_0'.format(dataroot_)))
-                hr_paths.append(Util.get_paths_from_mhds('{}/nonzero/hr_0'.format(dataroot_)))
+                sr_paths.append(Util.get_paths_from_mhds('{}/nonzero/sr'.format(dataroot_)))
+                hr_paths.append(Util.get_paths_from_mhds('{}/nonzero/hr'.format(dataroot_)))
             hr_path = list(itertools.chain.from_iterable(hr_paths))
             sr_path = list(itertools.chain.from_iterable(sr_paths))
             self.dataset_len = len(hr_path)
@@ -42,7 +42,7 @@ class LRHRDataset(Dataset):
                 self.data_len = min(self.data_len, self.dataset_len)
                 hr_path = hr_path[:self.data_len]
                 sr_path = sr_path[:self.data_len]
-            
+
             for hr, sr in tqdm(zip(hr_path, sr_path), desc='create datasets', total=len(hr_path)):
                 img_HR = sitk.ReadImage(hr)
                 img_SR = sitk.ReadImage(sr)
@@ -53,8 +53,10 @@ class LRHRDataset(Dataset):
             print("train_slice_length : {}".format(self.data_len))
 
         if split == 'val':
-            sr_path = '{}/sr_0_0/{}'.format(dataroot, slice_file)
-            hr_path = '{}/hr_0/{}'.format(dataroot, slice_file)
+            sr_path = '{}/sr/{}'.format(dataroot, slice_file)
+            hr_path = '{}/hr/{}'.format(dataroot, slice_file)
+
+            print(sr_path)
 
             img_HR = sitk.ReadImage(hr_path)
             img_SR = sitk.ReadImage(sr_path)
@@ -97,13 +99,13 @@ class LRHRDataset(Dataset):
 
         nda_img_HR = self.hr_imgs[index]
         nda_img_SR = self.sr_imgs[index]
-        
+
         if self.split == 'train':
             H, W = nda_img_HR.shape
-            crop_h = 0 
+            crop_h = 0
             crop_w = 0
             while(1):
-                crop_h, crop_w = choose_lung_crop(H, W, GT_size)
+                crop_h, crop_w = self._choose_lung_crop(H, W, GT_size)
                 img_HR = nda_img_HR[crop_h: crop_h + GT_size, crop_w : crop_w + GT_size]
                 if (np.count_nonzero(img_HR==0)/np.count_nonzero(img_HR>=0) <= self.black_ratio):#黒の割合
                     break
@@ -116,7 +118,7 @@ class LRHRDataset(Dataset):
         [img_SR, img_HR] = Util.transform_augment([img_SR, img_HR], split=self.split, min_max=(0, 1))
         return {'HR': img_HR, 'SR': img_SR}
 
-def choose_lung_crop(H, W, GT_size):
-    h = random.randint(0, H-GT_size)
-    w = random.randint(0, W-GT_size)
-    return h, w
+    def _choose_lung_crop(self, H, W, GT_size):
+        h = random.randint(0, H-GT_size)
+        w = random.randint(0, W-GT_size)
+        return h, w

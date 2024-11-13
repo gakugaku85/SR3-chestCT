@@ -60,7 +60,7 @@ class DDPM(BaseModel):
         # set log
         self.log_dict['l_pix'] = l_pix.item()
         self.log_dict['diff_loss'] = diff_loss.item()
-        self.log_dict['sobel_loss'] = sobel_loss.item()
+        self.log_dict['wd_loss'] = sobel_loss.item()
 
     def print_train_result(self):
         if isinstance(self.netG, nn.DataParallel):
@@ -69,7 +69,7 @@ class DDPM(BaseModel):
         else:
             train_out = self.netG.print_train_result()
             out = train_out.detach().float().cpu()
-        return out 
+        return out
 
     def test(self, continous=False):
         self.netG.eval()
