@@ -9,18 +9,20 @@
         "tb_logger": "tb_logger",
         "results": "results",
         "checkpoint": "checkpoint",
-        "resume_state": null
-        // "resume_state": "experiments/sr_microCT_patch_230112_140212/checkpoint/I54000_E1800" //pretrain model or training state
+        // "resume_state": null
+        // "resume_state": "experiments/sr_patch_64_241125_090218/checkpoint/I62000_E2067" oriの最良
+        // "resume_state": "experiments/sr_patch_64_241120_035300/checkpoint/I26000_E867" // wdの最良
+        "resume_state": "experiments/sr_patch_64_250108_112109/checkpoint/I96000_E16001"
     },
     "datasets": {
         "train": {
-            "name": "1784-1802",
+            "name": "1784",
             "mode": "HR", // whether need LR img
-            "dataroot": "/take/dataset/microCT_slices_1784 /take/dataset/microCT_slices_1802",
+            "dataroot": "/take/dataset/microCT_slices_1784",
             "datatype": "mhd", //lmdb or img, path of img files
             "l_resolution": 16, // low resolution need to super_resolution
             "r_resolution": 64, // high resolution
-            "batch_size": 64,
+            "batch_size": 128,
             "num_workers": 8,
             "black_ratio": 0.8,
             "use_shuffle": true,
@@ -37,8 +39,10 @@
             "overlap": 4,
             "batch_size": 1024,
             "use_shuffle": false,
-            "image_h": 1536,
-            "image_w": 1100,
+            "image_h": 1536, // 1794のheight
+            "image_w": 1100, // 1794のwidth
+            // "image_h": 1713, // 1792のheight
+            // "image_w": 1948, // 1792のwidth
             "data_length": -1 // -1 represents all data used in validation
         }
     },
@@ -84,15 +88,17 @@
         "diffusion": {
             "image_size": 64,
             "channels": 1, //sample channel
-            "loss_func": "wd",
-            "loss_name": "wd",  //sobel or diff
+            "loss_func": "wd", //wd or l1
+            "loss_name": "wd",  //wd or ori
             "conditional": true, // unconditional generation or unconditional generation(super_resolution)
-            "under_step_wd_loss": 2000
+            "under_step_wd_loss": 2000,
+            "pd_weight_thre": 0.01,
+            "wdloss_weight": 100
         }
     },
     "train": {
-        "n_iter": 100000,
-        "val_freq": 2000,
+        "n_iter": 150000,
+        "val_freq": 1000,
         "over_val": 10000,
         "val_i": 290,
         "train_print_freq": 1000,

@@ -21,9 +21,9 @@ if __name__ == "__main__":
                         help='Run either train(training) or val(generation)', default='train')
     parser.add_argument('-gpu', '--gpu_ids', type=str, default="0")
     parser.add_argument('-debug', '-d', action='store_true')
-    parser.add_argument('-enable_wandb', action='store_true')
+    parser.add_argument('-enable_wandb', '-w', action='store_true')
     parser.add_argument('-log_wandb_ckpt', action='store_true')
-    parser.add_argument('-log_eval', action='store_true')
+    parser.add_argument('-log_eval','-l', action='store_true')
 
     # parse configs
     args = parser.parse_args()
@@ -49,7 +49,7 @@ if __name__ == "__main__":
         wandb.define_metric('validation/val_step')
         wandb.define_metric('epoch')
         wandb.define_metric("iter/*", step_metric="current_step")
-        wandb.define_metric("validation/*", step_metric="val_step")
+        wandb.define_metric("validation/*", step_metric="current_step")
         val_step = 0
     else:
         wandb_logger = None
@@ -125,7 +125,7 @@ if __name__ == "__main__":
 
                 # validation
                 if current_step % opt['train']['val_freq'] == 0 and current_step >= opt['train']['over_val']:
-                    result_path = '{}/{}'.format(opt['path']['results'], current_epoch)
+                    result_path = '{}/{}'.format(opt['path']['results'], current_step)
                     os.makedirs(result_path, exist_ok=True)
                     avg_psnr = 0.0
                     avg_ssim = 0.0
@@ -203,7 +203,7 @@ if __name__ == "__main__":
                         wandb_logger.log_metrics({
                             'validation/val_psnr': avg_psnr,
                             'validation/val_ssim': avg_ssim,
-                            'validation/val_step': val_step
+                            'val_step': val_step
                         })
                         val_step += 1
 

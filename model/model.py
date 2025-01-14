@@ -55,12 +55,12 @@ class DDPM(BaseModel):
         l_pix.backward()
         self.optG.step()
 
-        diff_loss, sobel_loss = self.netG.get_each_loss()
+        diff_loss, wd_loss = self.netG.get_each_loss()
 
         # set log
         self.log_dict['l_pix'] = l_pix.item()
         self.log_dict['diff_loss'] = diff_loss.item()
-        self.log_dict['wd_loss'] = sobel_loss.item()
+        self.log_dict['wd_loss'] = wd_loss.item()
 
     def print_train_result(self):
         if isinstance(self.netG, nn.DataParallel):

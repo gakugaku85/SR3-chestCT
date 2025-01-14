@@ -25,16 +25,20 @@ class LRHRDataset(Dataset):
 
         hr_paths = []
         sr_paths = []
+        frangi_paths = []
 
         self.hr_imgs = []
         self.sr_imgs = []
+        self.frangi_imgs = []
 
         if split == 'train':
             for dataroot_ in dataroot.split():
                 sr_paths.append(Util.get_paths_from_mhds('{}/nonzero/sr'.format(dataroot_)))
                 hr_paths.append(Util.get_paths_from_mhds('{}/nonzero/hr'.format(dataroot_)))
+                frangi_paths.append(Util.get_paths_from_mhds('{}/nonzero/frangi'.format(dataroot_)))
             hr_path = list(itertools.chain.from_iterable(hr_paths))
             sr_path = list(itertools.chain.from_iterable(sr_paths))
+            frangi_path = list(itertools.chain.from_iterable(frangi_paths))
             self.dataset_len = len(hr_path)
             if self.data_len <= 0:
                 self.data_len = self.dataset_len
@@ -42,14 +46,18 @@ class LRHRDataset(Dataset):
                 self.data_len = min(self.data_len, self.dataset_len)
                 hr_path = hr_path[:self.data_len]
                 sr_path = sr_path[:self.data_len]
+                frangi_path = frangi_path[:self.data_len]
 
-            for hr, sr in tqdm(zip(hr_path, sr_path), desc='create datasets', total=len(hr_path)):
+            for hr, sr, frangi in tqdm(zip(hr_path, sr_path, frangi_path), desc='create datasets', total=len(hr_path)):
                 img_HR = sitk.ReadImage(hr)
                 img_SR = sitk.ReadImage(sr)
+                img_Frangi = sitk.ReadImage(frangi)
                 nda_img_HR = sitk.GetArrayFromImage(img_HR)
                 nda_img_SR = sitk.GetArrayFromImage(img_SR)
+                nda_img_Frangi = sitk.GetArrayFromImage(img_Frangi)
                 self.hr_imgs.append(nda_img_HR)
                 self.sr_imgs.append(nda_img_SR)
+                self.frangi_imgs.append(nda_img_Frangi)
             print("train_slice_length : {}".format(self.data_len))
 
         if split == 'val':
@@ -101,22 +109,25 @@ class LRHRDataset(Dataset):
         nda_img_SR = self.sr_imgs[index]
 
         if self.split == 'train':
+            nda_img_Frangi = self.frangi_imgs[index]
             H, W = nda_img_HR.shape
             crop_h = 0
             crop_w = 0
-            while(1):
+            while(1): #絶対こっちに条件書いたほうが良かった
                 crop_h, crop_w = self._choose_lung_crop(H, W, GT_size)
                 img_HR = nda_img_HR[crop_h: crop_h + GT_size, crop_w : crop_w + GT_size]
                 if (np.count_nonzero(img_HR==0)/np.count_nonzero(img_HR>=0) <= self.black_ratio):#黒の割合
                     break
             nda_img_HR = nda_img_HR[crop_h: crop_h + GT_size, crop_w : crop_w + GT_size]
             nda_img_SR = nda_img_SR[crop_h: crop_h + GT_size, crop_w : crop_w + GT_size]
+            nda_img_Frangi = nda_img_Frangi[crop_h: crop_h + GT_size, crop_w : crop_w + GT_size]
+            img_Frangi = Image.fromarray(nda_img_Frangi)
 
         img_HR = Image.fromarray(nda_img_HR)
         img_SR = Image.fromarray(nda_img_SR)
 
-        [img_SR, img_HR] = Util.transform_augment([img_SR, img_HR], split=self.split, min_max=(0, 1))
-        return {'HR': img_HR, 'SR': img_SR}
+        [img_SR, img_HR, img_Frangi] = Util.transform_augment([img_SR, img_HR, img_Frangi], split=self.split, min_max=(0, 1))
+        return {'HR': img_HR, 'SR': img_SR, 'Frangi': img_Frangi}
 
     def _choose_lung_crop(self, H, W, GT_size):
         h = random.randint(0, H-GT_size)
