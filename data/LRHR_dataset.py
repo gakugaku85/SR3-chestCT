@@ -126,8 +126,12 @@ class LRHRDataset(Dataset):
         img_HR = Image.fromarray(nda_img_HR)
         img_SR = Image.fromarray(nda_img_SR)
 
-        [img_SR, img_HR, img_Frangi] = Util.transform_augment([img_SR, img_HR, img_Frangi], split=self.split, min_max=(0, 1))
-        return {'HR': img_HR, 'SR': img_SR, 'Frangi': img_Frangi}
+        if self.split == 'train':
+            [img_SR, img_HR, img_Frangi] = Util.transform_augment([img_SR, img_HR, img_Frangi], split=self.split, min_max=(0, 1))
+            return {'HR': img_HR, 'SR': img_SR, 'Frangi': img_Frangi}
+        else:
+            [img_SR, img_HR] = Util.transform_augment([img_SR, img_HR], split=self.split, min_max=(0, 1))
+            return {'HR': img_HR, 'SR': img_SR}
 
     def _choose_lung_crop(self, H, W, GT_size):
         h = random.randint(0, H-GT_size)

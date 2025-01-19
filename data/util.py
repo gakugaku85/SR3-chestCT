@@ -1,10 +1,11 @@
 import os
+import os.path as osp
+import random
+from glob import glob
+
+import numpy as np
 import torch
 import torchvision
-import random
-import numpy as np
-from glob import glob
-import os.path as osp
 from natsort import natsorted
 
 IMG_EXTENSIONS = ['.jpg', '.JPG', '.jpeg', '.JPEG',
@@ -57,8 +58,10 @@ def augment(img_list, hflip=True, rot=True, split='val'):
 
 def transform2numpy(img):
     img = np.array(img)
-    img = img.astype(np.float64) / 255.
-    img = img.clip(min=0, max=1)
+    # img = img.astype(np.float64) / 255.
+    img = img.astype(np.float32)
+    img = (img - img.min()) / (img.max() - img.min())
+    # img = img.clip(min=0, max=1)
     if img.ndim == 2:
         img = np.expand_dims(img, axis=2)
     # some images have 4 channels
@@ -87,7 +90,7 @@ def transform_augment(img_list, split='val', min_max=(0, 1)):
 # implementation by torchvision, detail in https://github.com/Janspiry/Image-Super-Resolution-via-Iterative-Refinement/issues/14
 # totensor = torchvision.transforms.ToTensor()
 # hflip = torchvision.transforms.RandomHorizontalFlip()
-# def transform_augment(img_list, split='val', min_max=(0, 1)):    
+# def transform_augment(img_list, split='val', min_max=(0, 1)):
 #     imgs = [totensor(img) for img in img_list]
 #     if split == 'train':
 #         imgs = torch.stack(imgs, 0)

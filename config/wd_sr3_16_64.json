@@ -12,7 +12,9 @@
         // "resume_state": null
         // "resume_state": "experiments/sr_patch_64_241125_090218/checkpoint/I62000_E2067" oriの最良
         // "resume_state": "experiments/sr_patch_64_241120_035300/checkpoint/I26000_E867" // wdの最良
-        "resume_state": "experiments/sr_patch_64_250108_112109/checkpoint/I96000_E16001"
+        "resume_state": "experiments/sr_patch_64_250114_105236/checkpoint/I98000_E16335" // ori二回目の最良
+        // "resume_state": "experiments/sr_patch_64_250114_105236/checkpoint/I106000_E17668"
+
     },
     "datasets": {
         "train": {
@@ -29,7 +31,7 @@
             "data_length": -1 // -1 represents all data used in train
         },
         "val": {
-            "name": "1794",
+            "name": "1792",
             "mode": "HR",
             "dataroot": "/take/dataset/microCT_slices_1794_2",
             "datatype": "mhd",
@@ -38,7 +40,7 @@
             "r_resolution": 64,
             "overlap": 4,
             "batch_size": 1024,
-            "use_shuffle": false,
+            // "use_shuffle": false,
             "image_h": 1536, // 1794のheight
             "image_w": 1100, // 1794のwidth
             // "image_h": 1713, // 1792のheight
@@ -91,7 +93,7 @@
             "loss_func": "wd", //wd or l1
             "loss_name": "wd",  //wd or ori
             "conditional": true, // unconditional generation or unconditional generation(super_resolution)
-            "under_step_wd_loss": 2000,
+            "under_step_wd_loss": 500,
             "pd_weight_thre": 0.01,
             "wdloss_weight": 100
         }
@@ -103,7 +105,7 @@
         "val_i": 290,
         "train_print_freq": 1000,
         "over_train_print": 10000,
-        "save_checkpoint_freq": 2000,
+        "save_checkpoint_freq": 1000,
         "print_freq": 10,
         "optimizer": {
             "type": "adam",

@@ -1,11 +1,23 @@
 import os
+import warnings
+from pathlib import Path
+
 import numpy as np
+import SimpleITK as sitk
+from icecream import ic
 from skimage import io
 from skimage.filters import frangi
 from skimage.metrics import mean_squared_error
-import SimpleITK as sitk
-from icecream import ic
-from pathlib import Path
+
+warnings.filterwarnings("ignore", category=UserWarning, module="io")
+
+import imageio.core.util
+
+
+def ignore_warnings(*args, **kwargs):
+    pass
+
+imageio.core.util._precision_warn = ignore_warnings
 
 def apply_frangi(image):
     """
@@ -13,7 +25,7 @@ def apply_frangi(image):
     :param image: numpy array, input image.
     :return: numpy array, Frangi filter output.
     """
-    return frangi(255 - image)
+    return frangi(image, black_ridges=False)
 
 def scale_to_uint8(image):
     """
@@ -21,8 +33,8 @@ def scale_to_uint8(image):
     :param image: numpy array, input image.
     :return: numpy array, scaled image in uint8 format.
     """
-    scaled = (image - np.min(image)) / (np.max(image) - np.min(image)) * 255
-    return scaled.astype(np.uint8)
+    # scaled = (image - np.min(image)) / (np.max(image) - np.min(image)) * 255
+    return image.astype(np.uint8)
 
 def crop_center(image, crop_size):
     """
@@ -45,7 +57,7 @@ def save_image(image, output_path):
     """
     io.imsave(output_path, image)
 
-def evaluate_images(dir, num_images=5, ite=12000):
+def evaluate_images(dir, num_images=5, ite=12000, th=40):
     """
     Evaluate the super-resolution images against high-resolution images.
     :param dir: str, directory containing HR and SR images.
@@ -55,7 +67,7 @@ def evaluate_images(dir, num_images=5, ite=12000):
     """
     crop_size = (255, 255)
     mse_values = []
-    output_path = Path(dir) / "frangi"
+    output_path = Path(dir) / "frangi{}".format(th)
     output_path.mkdir(parents=True, exist_ok=True)
 
     for i in range(1, num_images + 1):
@@ -69,16 +81,21 @@ def evaluate_images(dir, num_images=5, ite=12000):
         sr_image = sitk.GetArrayFromImage(sitk.ReadImage(os.path.join(dir, sr_filename)))
         inf_image = sitk.GetArrayFromImage(sitk.ReadImage(os.path.join(dir, inf_filename)))
 
-        # ic(hr_image.max(), hr_image.min())
-        # ic(sr_image.max(), sr_image.min())
-
         # Apply Frangi filter
         hr_frangi = apply_frangi(hr_image)*255
         sr_frangi = apply_frangi(sr_image)*255
-        inf_frangi = apply_frangi(inf_image)*255
 
-        # ic(hr_frangi.max(), hr_frangi.min())
-        # ic(sr_frangi.max(), sr_frangi.min())
+        # 70以下の値を0にする
+        thre_hr_frangi = np.where(hr_frangi < th, 0, hr_frangi)
+        thre_sr_frangi = np.where(sr_frangi < th, 0, sr_frangi)
+
+        inf_frangi = apply_frangi(inf_image)
+        mse = mean_squared_error(thre_hr_frangi, thre_sr_frangi)
+
+        ic(mse)
+
+        # hr_frangi = np.where(hr_frangi < th, 0, 255)
+        # sr_frangi = np.where(sr_frangi < th, 0, 255)
 
         # Crop the center
         hr_cropped = crop_center(hr_image, crop_size)
@@ -102,9 +119,6 @@ def evaluate_images(dir, num_images=5, ite=12000):
         save_image(sr_f_cropped_scaled, output_path / f"{ite}_{i}_sr_f_cropped.png")
 
         # Compute MSE
-        mse = mean_squared_error(hr_frangi, sr_frangi)
-
-        ic(mse)
 
         mse_values.append(mse)
 
@@ -113,15 +127,35 @@ def evaluate_images(dir, num_images=5, ite=12000):
     return average_mse
 
 # Usage example:
-# dir = "experiments/sr_patch_64_val_241129_083024/results" # wdのtest
-# dir = "experiments/sr_patch_64_val_241129_082326/results" # oriのtest
 
-dir = "experiments/sr_patch_64_241125_090218/results/2400"
-epoch = int(dir.split("/")[-1])
-ite = round(epoch * 30, -2)
+dir_list = [
+    "experiments/sr_patch_64_val_250115_091847/results", # ori2回目のtest
+    "experiments/sr_patch_64_val_250118_042926/results", # wd2回目のtest
+]
+# dir = "experiments/sr_patch_64_val_250115_091847/results" # ori2回目のtest
+# dir = "experiments/sr_patch_64_val_250118_042926/results" # wd2回目のtest
 
-print(f"ite: {ite}")
-num_images = 10 if dir.split("/")[-1] == "results" else 5
+threshold = 0
+print(f"Threshold: {threshold}")
 
-average_mse = evaluate_images(dir, num_images=num_images, ite=ite)
-print(f"Average MSE across {num_images} images: {average_mse}")
+threshold = threshold * 255
+print(f"Threshold: {threshold}")
+for dir in dir_list:
+    print(f"dir: {dir}")
+    epoch = int(dir.split("/")[-1]) if dir.split("/")[-1] != "results" else 0
+    ite = round(epoch * 30, -2)
+
+    # print(f"ite: {ite}")
+    num_images = 10 if dir.split("/")[-1] == "results" else 5
+
+    average_mse = evaluate_images(dir, num_images=num_images, ite=ite, th=threshold)
+    print(f"Average MSE across {num_images} images: {average_mse}")
+
+# epoch = int(dir.split("/")[-1]) if dir.split("/")[-1] != "results" else 0
+# ite = round(epoch * 30, -2)
+
+# print(f"ite: {ite}")
+# num_images = 10 if dir.split("/")[-1] == "results" else 5
+
+# average_mse = evaluate_images(dir, num_images=num_images, ite=ite)
+# print(f"Average MSE across {num_images} images: {average_mse}")

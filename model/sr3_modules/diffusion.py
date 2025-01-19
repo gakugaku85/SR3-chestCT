@@ -249,8 +249,6 @@ class GaussianDiffusion(nn.Module):
         elif self.loss_type == 'wd':
             self.loss_func = nn.L1Loss(reduction='sum').to(device)
             self.loss_func2 = TopologicalWDLoss(weight_thre=self.weight_thre).to(device)
-            # self.loss_func2 = TopologicalWDLoss().to(device)
-            self.loss_wd = WassersteinDistanceLoss().to(device)
         else:
             raise NotImplementedError()
         # Sobelフィルタのカーネルを定義
