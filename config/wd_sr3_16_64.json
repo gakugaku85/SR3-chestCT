@@ -12,8 +12,9 @@
         // "resume_state": null
         // "resume_state": "experiments/sr_patch_64_241125_090218/checkpoint/I62000_E2067" oriの最良
         // "resume_state": "experiments/sr_patch_64_241120_035300/checkpoint/I26000_E867" // wdの最良
-        "resume_state": "experiments/sr_patch_64_250114_105236/checkpoint/I98000_E16335" // ori二回目の最良
+        // "resume_state": "experiments/sr_patch_64_250114_105236/checkpoint/I98000_E16335" // ori二回目の最良
         // "resume_state": "experiments/sr_patch_64_250114_105236/checkpoint/I106000_E17668"
+        "resume_state": "experiments/sr_patch_64_250114_092937/checkpoint/I122000_E20335"
 
     },
     "datasets": {
@@ -33,18 +34,18 @@
         "val": {
             "name": "1792",
             "mode": "HR",
-            "dataroot": "/take/dataset/microCT_slices_1794_2",
+            "dataroot": "/take/dataset/microCT_slices_1792_2",
             "datatype": "mhd",
-            "maskroot": "/take/dataset/microCT_slices_1794_2/mask",
+            "maskroot": "/take/dataset/microCT_slices_1792_2/mask",
             "l_resolution": 16,
             "r_resolution": 64,
             "overlap": 4,
             "batch_size": 1024,
             // "use_shuffle": false,
-            "image_h": 1536, // 1794のheight
-            "image_w": 1100, // 1794のwidth
-            // "image_h": 1713, // 1792のheight
-            // "image_w": 1948, // 1792のwidth
+            // "image_h": 1536, // 1794のheight
+            // "image_w": 1100, // 1794のwidth
+            "image_h": 1713, // 1792のheight
+            "image_w": 1948, // 1792のwidth
             "data_length": -1 // -1 represents all data used in validation
         }
     },

@@ -76,10 +76,16 @@ def evaluate_images(dir, num_images=5, ite=12000, th=40):
         sr_filename = f"{ite}_{i}_sr.mhd"
         inf_filename = f"{ite}_{i}_inf.mhd"
 
+        # mask_filename = f"TPCC/hr_{i-1}_binary.mhd"
+
+        # ic(hr_filename, sr_filename, inf_filename, mask_filename)
+
         # Load images
         hr_image = sitk.GetArrayFromImage(sitk.ReadImage(os.path.join(dir, hr_filename)))
         sr_image = sitk.GetArrayFromImage(sitk.ReadImage(os.path.join(dir, sr_filename)))
         inf_image = sitk.GetArrayFromImage(sitk.ReadImage(os.path.join(dir, inf_filename)))
+
+        # mask_image = sitk.GetArrayFromImage(sitk.ReadImage(os.path.join(dir, mask_filename)))
 
         # Apply Frangi filter
         hr_frangi = apply_frangi(hr_image)*255
@@ -89,7 +95,9 @@ def evaluate_images(dir, num_images=5, ite=12000, th=40):
         thre_hr_frangi = np.where(hr_frangi < th, 0, hr_frangi)
         thre_sr_frangi = np.where(sr_frangi < th, 0, sr_frangi)
 
-        inf_frangi = apply_frangi(inf_image)
+        # thre_hr_frangi = hr_frangi * mask_image
+        # thre_sr_frangi = sr_frangi * mask_image
+
         mse = mean_squared_error(thre_hr_frangi, thre_sr_frangi)
 
         ic(mse)
@@ -129,13 +137,14 @@ def evaluate_images(dir, num_images=5, ite=12000, th=40):
 # Usage example:
 
 dir_list = [
-    "experiments/sr_patch_64_val_250115_091847/results", # ori2回目のtest
-    "experiments/sr_patch_64_val_250118_042926/results", # wd2回目のtest
+    # "experiments/sr_patch_64_val_250115_091847/results", # ori2回目のtest
+    # "experiments/sr_patch_64_val_250118_042926/results", # wd2回目のtest
+    "experiments/sr_patch_64_val_250120_052047/results"
 ]
 # dir = "experiments/sr_patch_64_val_250115_091847/results" # ori2回目のtest
 # dir = "experiments/sr_patch_64_val_250118_042926/results" # wd2回目のtest
 
-threshold = 0
+threshold = 0.1
 print(f"Threshold: {threshold}")
 
 threshold = threshold * 255

@@ -1,11 +1,14 @@
 import logging
+import os
 from collections import OrderedDict
 
 import torch
 import torch.nn as nn
-import os
+
 import model.networks as networks
+
 from .base_model import BaseModel
+
 logger = logging.getLogger('base')
 
 
@@ -40,7 +43,7 @@ class DDPM(BaseModel):
                 optim_params, lr=opt['train']["optimizer"]["lr"])
             self.log_dict = OrderedDict()
         self.load_network()
-        self.print_network()
+        # self.print_network()
 
     def feed_data(self, data):
         self.data = self.set_device(data)
