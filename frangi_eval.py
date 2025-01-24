@@ -91,40 +91,38 @@ def evaluate_images(dir, num_images=5, ite=12000, th=40):
         hr_frangi = apply_frangi(hr_image)*255
         sr_frangi = apply_frangi(sr_image)*255
 
-        # 70以下の値を0にする
+        # th以下の値を0にする
+
         thre_hr_frangi = np.where(hr_frangi < th, 0, hr_frangi)
         thre_sr_frangi = np.where(sr_frangi < th, 0, sr_frangi)
-
-        # thre_hr_frangi = hr_frangi * mask_image
-        # thre_sr_frangi = sr_frangi * mask_image
 
         mse = mean_squared_error(thre_hr_frangi, thre_sr_frangi)
 
         ic(mse)
-
+        # if th != 0:
         # hr_frangi = np.where(hr_frangi < th, 0, 255)
         # sr_frangi = np.where(sr_frangi < th, 0, 255)
 
-        # Crop the center
-        hr_cropped = crop_center(hr_image, crop_size)
-        sr_cropped = crop_center(sr_image, crop_size)
-        inf_cropped = crop_center(inf_image, crop_size)
-        hr_f_cropped = crop_center(hr_frangi, crop_size)
-        sr_f_cropped = crop_center(sr_frangi, crop_size)
+        # # Crop the center
+        # hr_cropped = crop_center(hr_image, crop_size)
+        # sr_cropped = crop_center(sr_image, crop_size)
+        # inf_cropped = crop_center(inf_image, crop_size)
+        # hr_f_cropped = crop_center(hr_frangi, crop_size)
+        # sr_f_cropped = crop_center(sr_frangi, crop_size)
 
-        # Scale images to 0-255 for saving
-        hr_cropped_scaled = scale_to_uint8(hr_cropped)
-        sr_cropped_scaled = scale_to_uint8(sr_cropped)
-        inf_cropped_scaled = scale_to_uint8(inf_cropped)
-        hr_f_cropped_scaled = scale_to_uint8(hr_f_cropped)
-        sr_f_cropped_scaled = scale_to_uint8(sr_f_cropped)
+        # # Scale images to 0-255 for saving
+        # hr_cropped_scaled = scale_to_uint8(hr_cropped)
+        # sr_cropped_scaled = scale_to_uint8(sr_cropped)
+        # inf_cropped_scaled = scale_to_uint8(inf_cropped)
+        # hr_f_cropped_scaled = scale_to_uint8(hr_f_cropped)
+        # sr_f_cropped_scaled = scale_to_uint8(sr_f_cropped)
 
-        # Save cropped images
-        save_image(hr_cropped_scaled, output_path / f"{ite}_{i}_hr_cropped.png")
-        save_image(sr_cropped_scaled, output_path / f"{ite}_{i}_sr_cropped.png")
-        save_image(inf_cropped_scaled, output_path / f"{ite}_{i}_inf_cropped.png")
-        save_image(hr_f_cropped_scaled, output_path / f"{ite}_{i}_hr_f_cropped.png")
-        save_image(sr_f_cropped_scaled, output_path / f"{ite}_{i}_sr_f_cropped.png")
+        # # Save cropped images
+        # save_image(hr_cropped_scaled, output_path / f"{ite}_{i}_hr_cropped.png")
+        # save_image(sr_cropped_scaled, output_path / f"{ite}_{i}_sr_cropped.png")
+        # save_image(inf_cropped_scaled, output_path / f"{ite}_{i}_inf_cropped.png")
+        # save_image(hr_f_cropped_scaled, output_path / f"{ite}_{i}_hr_f_cropped.png")
+        # save_image(sr_f_cropped_scaled, output_path / f"{ite}_{i}_sr_f_cropped.png")
 
         # Compute MSE
 
@@ -137,18 +135,18 @@ def evaluate_images(dir, num_images=5, ite=12000, th=40):
 # Usage example:
 
 dir_list = [
-    # "experiments/sr_patch_64_val_250115_091847/results", # ori2回目のtest
+    "experiments/val_ori_best/results", # ori2回目のtest
     # "experiments/sr_patch_64_val_250118_042926/results", # wd2回目のtest
-    "experiments/sr_patch_64_val_250120_052047/results"
+    "experiments/val_wd_10_best/results"
 ]
 # dir = "experiments/sr_patch_64_val_250115_091847/results" # ori2回目のtest
 # dir = "experiments/sr_patch_64_val_250118_042926/results" # wd2回目のtest
 
-threshold = 0.1
+threshold = 0.01
 print(f"Threshold: {threshold}")
 
 threshold = threshold * 255
-print(f"Threshold: {threshold}")
+# print(f"Threshold: {threshold}")
 for dir in dir_list:
     print(f"dir: {dir}")
     epoch = int(dir.split("/")[-1]) if dir.split("/")[-1] != "results" else 0

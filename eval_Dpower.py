@@ -1,11 +1,15 @@
 import os
-import numpy as np
+import os.path as osp
+from glob import glob
+
+import cv2
 import matplotlib.pyplot as plt
-from natsort import natsorted
+import numpy as np
 import SimpleITK as sitk
 from icecream import ic
+from natsort import natsorted
 from scipy.fftpack import fft2, fftshift
-import cv2
+
 
 def create_dpower_graph(path):
     dpower_list = []
@@ -23,7 +27,7 @@ def create_dpower_graph(path):
                 hr_image = sitk.GetArrayFromImage(sitk.ReadImage(mhd_file_path))
                 sr_image = sitk.GetArrayFromImage(sitk.ReadImage(mhd_file_path.replace("hr", "sr")))
 
-                # centerから128x128の範囲を切り出す
+                # centerから256x256を切り出す
                 h, w = hr_image.shape
                 ch, cw = 256, 256
                 start_h = (h - ch) // 2
@@ -50,7 +54,7 @@ def create_dpower_graph(path):
 
     ite_scaled = [float(i) / 1e3 for i in ite_list]
 
-    iter_max = 74
+    iter_max = 96
     max_index = ite_scaled.index(iter_max)
 
     # 各サブプロットにデータをプロット
@@ -109,8 +113,8 @@ def calculate_dpower(hr, super_res, scale_factor=4):
         super_res = cv2.resize(super_res, (hr.shape[1], hr.shape[0]), interpolation=cv2.INTER_CUBIC)
 
     # Compute Fourier transforms
-    fft_hr = fftshift(fft2(hr))
-    fft_sr = fftshift(fft2(super_res))
+    fft_hr = np.fft.fftshift(np.fft.fftn(hr))
+    fft_sr = np.fft.fftshift(np.fft.fftn(super_res))
 
     # Compute power spectra
     power_hr = np.abs(fft_hr) ** 2
@@ -129,7 +133,7 @@ def calculate_dpower(hr, super_res, scale_factor=4):
 
     # Create frequency bands and calculate Dpower for each band
     y, x = np.ogrid[:h, :w]
-    distance_from_center = np.sqrt((x - center_x) ** 2 + (y - center_y) ** 2)
+    distance_from_center = np.maximum(np.abs(x - center_x), np.abs(y - center_y))
 
     for i in range(scale_factor):
         # Define band mask
@@ -138,12 +142,45 @@ def calculate_dpower(hr, super_res, scale_factor=4):
         band_mask = (distance_from_center > lower_bound) & (distance_from_center <= upper_bound)
 
         # Calculate Dpower for the current band
-        band_diff = np.mean(np.abs(power_sr[band_mask] - power_hr[band_mask]))
+        band_diff = np.mean(np.abs(power_hr[band_mask] - power_sr[band_mask]))
+
         dpower_results[f"Dpower_band_{i}-{i + 1}"] = band_diff
 
     return dpower_results
 
+def cal_test_Dpower(base_path):
+    hr_paths = natsorted(glob(osp.join(base_path, '*_hr.mhd')))
+    sr_paths = natsorted(glob(osp.join(base_path, '*_sr.mhd')))
+    dpower_results = []
+    for hr_path, sr_path in zip(hr_paths, sr_paths):
+        hr_image = sitk.GetArrayFromImage(sitk.ReadImage(hr_path))
+        sr_image = sitk.GetArrayFromImage(sitk.ReadImage(sr_path))
+
+        # centerから256x256を切り出す
+        h, w = hr_image.shape
+        ch, cw = 256, 256
+        start_h = (h - ch) // 2
+        start_w = (w - cw) // 2
+        hr_image = hr_image[start_h:start_h + ch, start_w:start_w + cw]
+        sr_image = sr_image[start_h:start_h + ch, start_w:start_w + cw]
+
+        dpower_result = calculate_dpower(hr_image, sr_image)
+        dpower_results.append(dpower_result)
+        # print(dpower_result)
+
+    dpow_low_mean = np.mean([dp["Dpower_band_0-1"] for dp in dpower_results])
+    dpow_high_mean = np.mean([dp["Dpower_band_1-2"] for dp in dpower_results])
+    dpow_sohigh_mean = np.mean([dp["Dpower_band_2-3"] for dp in dpower_results])
+    dpow_sosohigh_mean = np.mean([dp["Dpower_band_3-4"] for dp in dpower_results])
+    print(f"dpow_low_mean: {dpow_low_mean:.2e}")
+    print(f"dpow_high_mean: {dpow_high_mean:.2e}")
+    print(f"dpow_sohigh_mean: {dpow_sohigh_mean:.2e}")
+    print(f"dpow_sosohigh_mean: {dpow_sosohigh_mean:.2e}")
+
 if __name__ == "__main__":
-    base_path = '/take/gaku/SR3/SR3-chestCT/experiments/sr_patch_64_241125_090218/results'
-    # base_path = '/take/gaku/SR3/SR3/experiments/past/sr_patch_64_230203_072414/results'
+    base_path = '/take/gaku/SR3/SR3-chestCT/experiments/ori_2_27000-/results'
+    # base_path = '/take/gaku/SR3/SR3-chestCT/experiments/val_ori_best/results'
+    # cal_test_Dpower(base_path)
+    # base_path = '/take/gaku/SR3/SR3-chestCT/experiments/val_wd_10_best/results'
+    # cal_test_Dpower(base_path)
     create_dpower_graph(base_path)

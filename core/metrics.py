@@ -1,11 +1,13 @@
-import os
 import math
-import numpy as np
+import os
+
 import cv2
-from torchvision.utils import make_grid
+import numpy as np
 import SimpleITK as sitk
 from scipy.fftpack import fftn
+from torchvision.utils import make_grid
 from tqdm import tqdm
+
 
 def tensor2img(tensor, out_type=np.uint8, min_max=(-1, 1)):
     '''
@@ -238,7 +240,7 @@ def calc_fft_domain(gt, input):
     diff_spe = np.abs((gt_freq**2)-(img_freq)**2)
     diff_spe_const = np.mean(diff_spe)
 
-    return diff_spe_const, diff_spe, img_freq, gt_freq
+    return diff_spe_const, diff_spe, gt_freq, img_freq
 
 def calc_fft_domain_mask(gt, input, mask):
     mask_slice = mask / 255
@@ -280,10 +282,7 @@ def mean_values_by_distance(image, num_pixels):
                 if distance == i:
                     sum_values += image[y, x].mean()
                     pixels += 1
-        if pixels == 0:
-            mean_value = 0
-        else:
-            mean_value = sum_values / pixels
+        mean_value = sum_values / pixels if pixels != 0 else 0
             # mean_value = sum_values
         sum_value_ny += mean_value
         values.append(mean_value)

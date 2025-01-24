@@ -60,7 +60,7 @@ def hysteresis_process(array, th):
 
     low_label_array = cv2.adaptiveThreshold(
         array, 1, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-        cv2.THRESH_BINARY, blockSize=161, C=-5
+        cv2.THRESH_BINARY, blockSize=255, C=-5
     )
     nlabels, low_labels, stats, _ = cv2.connectedComponentsWithStats(low_label_array, connectivity=8)
 
@@ -79,7 +79,7 @@ def hysteresis_process(array, th):
 
     return overleft_hy_label
 
-def apply_filter_to_binaly(input_img, output_path, th=30, img_name=""):
+def apply_filter_to_binary(input_img, output_path, th=20, img_name=""):
     array = input_img
 
     array = frangi(array, black_ridges=False)
@@ -110,7 +110,7 @@ def apply_filter_to_binaly(input_img, output_path, th=30, img_name=""):
     binary_image = sitk.GetImageFromArray(binary_array.astype(np.uint8))
     sitk.WriteImage(binary_image, output_path + img_name + "_binary.mhd")
 
-    return binary_array, labels, nlabels_actual
+    return binary_array, labels, nlabels_actual, stats
 
 def count_tpcc_from_base_image(targer_labels, base_binary_label, result_path, i, img_name=""):
     shape = targer_labels.shape
@@ -125,10 +125,87 @@ def count_tpcc_from_base_image(targer_labels, base_binary_label, result_path, i,
 
     return tpcc_num
 
+def count_tpcc_per_connected_from_base_image(target_labels, base_labels, result_path, i, img_name=""):
+    shape = target_labels.shape
+
+    # ステップ1: base_labels から二値化マスクを作成
+    base_binary_label = (base_labels > 0).astype(np.uint8)
+
+    # ステップ2: target_labels に二値化マスクを乗算して重なりのあるラベルのみを保持
+    mix_labels = target_labels * base_binary_label
+
+    # ステップ3: mix_labels から背景 (0) を除外してユニークなラベルを抽出
+    new_labels = np.unique(mix_labels)
+    new_labels = new_labels[new_labels > 0]  # 背景を除外
+
+    # [i_label, base_label] のペアを格納するリストを初期化
+    per_c_labels = []
+
+    # ステップ4: new_labels の各ラベルについてループ
+    for i_label in new_labels:
+        # 現在のラベルのマスクを作成
+        i_label_mask = (mix_labels == i_label)
+
+        # i_label_mask と重なる base_labels のラベルを取得
+        overlapping_base_labels = base_labels[i_label_mask]
+
+        # 重なり領域からユニークなラベルを取得し、背景 (0) を除外
+        unique_base_labels = np.unique(overlapping_base_labels)
+        unique_base_labels = unique_base_labels[unique_base_labels > 0]
+
+        # 重なりのある各 base_label と i_label のペアをリストに追加
+        for base_label in unique_base_labels:
+            per_c_labels.append([i_label, base_label])
+
+    # per
+    base_label_count = {}
+    for i_label, base_label in per_c_labels:
+        if base_label in base_label_count:
+            base_label_count[base_label] += 1
+        else:
+            base_label_count[base_label] = 1
+    # base_label_countのすべての要素から1を引く
+    base_label_count = {k: v-1 for k, v in base_label_count.items()}
+    ic(base_label_count)
+
+    # base_label_countの値の合計がTPCCの数
+    tpcc_num = sum(base_label_count.values())
+    delta_tpcc_num = tpcc_num / len(base_label_count)
+    ic(delta_tpcc_num)
+    # create_color_label_image(overleft_label, new_labels.max(), shape, result_path, "overleft_{}_{}".format(img_name, i))
+
+    return delta_tpcc_num
+
+def connect_all_image(range_num):
+    wd_10_path = "experiments/val_wd_10_best/results/TPCC/"
+
+    for i in range(range_num):
+        img_list = []
+        img_list.append(cv2.imread(result_path + "ori_imgs/" + "hr_patch_{}.png".format(i), cv2.IMREAD_COLOR))
+        img_list.append(cv2.imread(result_path + "ori_imgs/" + "overleft_hr_baseGT_{}label.png".format(i), cv2.IMREAD_COLOR))
+        img_list.append(cv2.imread(result_path + "ori_imgs/" + "sr_patch_{}.png".format(i), cv2.IMREAD_COLOR))
+        img_list.append(cv2.imread(result_path + "ori_imgs/" + "overleft_sr_baseGT_{}label.png".format(i), cv2.IMREAD_COLOR))
+        img_list.append(cv2.imread(wd_10_path + "ori_imgs/" + "sr_patch_{}.png".format(i), cv2.IMREAD_COLOR))
+        img_list.append(cv2.imread(wd_10_path + "ori_imgs/" + "overleft_sr_baseGT_{}label.png".format(i), cv2.IMREAD_COLOR))
+        img_list.append(cv2.imread(result_path + "ori_imgs/" + "label_patch_{}.png".format(i), cv2.IMREAD_COLOR))
+        concat_img = cv2.hconcat(img_list)
+        cv2.imwrite(result_path + "ori_imgs/concat_{}.png".format(i), concat_img)
+
+def delete_label_th(labels, stats, nlabels, th):
+    for i in range(1, nlabels):  # 0は背景なのでスキップ
+        if stats[i, cv2.CC_STAT_AREA] <= th:  # 面積がth以下の場合
+            labels[labels == i] = 0
+
+    unique_labels = np.unique(labels)[1:]
+    nlabels_actual = len(unique_labels)
+
+    return labels, nlabels_actual
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-p', '--path', type=str,
                         default="sr_patch_64_val_250115_091847")
+    parser.add_argument('-t', '--th', type=int, default=30)
     args = parser.parse_args()
 
     test_path = "experiments/" + args.path + "/results"
@@ -153,8 +230,11 @@ if __name__ == "__main__":
     GT_hr_delta_tpcc_list = []
     GT_sr_delta_tpcc_list = []
 
-    gaku_label_path = "/take/dataset/microCT_slices_1792_2/interlobular_septum_mask/600_label_gaku.mhd"
+    gaku_label_path = "/take/dataset/microCT_slices_1792_2/interlobular_septum_mask/Segmentation_600_label_gaku_1.nrrd"
     gaku_label = load_mhd(gaku_label_path)[0]
+    print(gaku_label.shape)
+    # 次元数が合わないのでchannelを減らす
+    gaku_label = gaku_label[0]
 
     df_list = []
 
@@ -179,14 +259,21 @@ if __name__ == "__main__":
         GT_nlabels, GT_labels, _, _ = cv2.connectedComponentsWithStats(label_patch, connectivity=8)
         GT_tpcc_num = GT_nlabels - 1
 
-        hr_patch_binary, hr_labels, hr_nlabel = apply_filter_to_binaly(hr_patch, result_path, img_name="hr_patch_{}".format(i))
-        sr_patch_binary, sr_labels, sr_nlabel = apply_filter_to_binaly(sr_patch, result_path, img_name="sr_patch_{}".format(i))
-
-        hr_label = (hr_labels > 0).astype(np.uint8)
-        hr_tpcc_num = hr_nlabel
+        hr_patch_binary, hr_labels, hr_nlabel, hr_stats = apply_filter_to_binary(hr_patch, result_path, img_name="hr_patch_{}".format(i), th=args.th)
+        sr_patch_binary, sr_labels, sr_nlabel, sr_stats = apply_filter_to_binary(sr_patch, result_path, img_name="sr_patch_{}".format(i), th=args.th)
 
         hr_baseGT_tpcc_num = count_tpcc_from_base_image(hr_labels, label_patch, result_path, i, img_name="hr_baseGT")-1
         sr_baseGT_tpcc_num = count_tpcc_from_base_image(sr_labels, label_patch, result_path, i, img_name="sr_baseGT")-1 #背景がひとつ多いので-1
+
+        # hr_baseGT_tpcc_num = count_tpcc_per_connected_from_base_image(hr_labels, GT_labels, result_path, i, img_name="hr_baseGT")
+        # sr_baseGT_tpcc_num = count_tpcc_per_connected_from_base_image(sr_labels, GT_labels, result_path, i, img_name="sr_baseGT")
+        # input()
+
+        # hr_labels, hr_nlabel= delete_label_th(hr_labels, hr_stats, hr_nlabel, 30)
+        # sr_labels, sr_nlabel = delete_label_th(sr_labels, sr_stats, sr_nlabel, 30)
+
+        hr_label = (hr_labels > 0).astype(np.uint8)
+        hr_tpcc_num = hr_nlabel
 
         sr_baseHR_tpcc_num = count_tpcc_from_base_image(sr_labels, hr_label, result_path, i, img_name="sr_baseHR")
 
@@ -201,9 +288,16 @@ if __name__ == "__main__":
         fpcc = sr_nlabel - sr_baseHR_tpcc_num
         fpcc_list.append(fpcc)
 
-        df_list.append([GT_tpcc_num, hr_tpcc_num, sr_nlabel, GT_hr_delta_tpcc, GT_sr_delta_tpcc, sr_hr_delta_tpcc, fpcc])
+        ic(i)
 
+        df_list.append([GT_tpcc_num, hr_tpcc_num, sr_nlabel, hr_baseGT_tpcc_num, sr_baseGT_tpcc_num, GT_hr_delta_tpcc, GT_sr_delta_tpcc, sr_baseHR_tpcc_num, sr_hr_delta_tpcc, fpcc])
 
-    ic(np.mean(delta_tpcc_list), np.mean(GT_hr_delta_tpcc_list), np.mean(GT_sr_delta_tpcc_list))
-    df = pd.DataFrame(df_list, columns=["GT_tpcc_num", "hr_label_num", "sr_label_num", "GT-hr_delta_tpcc", "GT-sr_delta_tpcc", "sr-hr_delta_tpcc", "fpcc"])
+    # 小数点第2位まで表示
+    GT_hr_delta_tpcc_mean = np.mean(GT_hr_delta_tpcc_list).round(2)
+
+    print("GT_hr_delta_tpcc: ", np.mean(GT_hr_delta_tpcc_list).round(2), "GT_sr_delta_tpcc: ", np.mean(GT_sr_delta_tpcc_list).round(2), "sr-hr_delta_tpcc: ", np.mean(delta_tpcc_list).round(2))
+    df = pd.DataFrame(df_list, columns=["GT_tpcc_num", "hr_label_num", "sr_label_num", "hr_baseGT_tpcc_num", "sr_baseGT_tpcc_num", "GT_hr_delta_tpcc", "GT_sr_delta_tpcc", "sr_baseHR_tpcc_num", "sr_hr_delta_tpcc", "fpcc"])
     df.to_csv(result_path + args.path + "_result.csv", index=False)
+
+    # i = 20
+    connect_all_image(i+1)
