@@ -3,11 +3,13 @@ import warnings
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import SimpleITK as sitk
 from icecream import ic
 from skimage import io
 from skimage.filters import frangi
 from skimage.metrics import mean_squared_error
+from tqdm import tqdm
 
 warnings.filterwarnings("ignore", category=UserWarning, module="io")
 
@@ -57,7 +59,7 @@ def save_image(image, output_path):
     """
     io.imsave(output_path, image)
 
-def evaluate_images(dir, num_images=5, ite=12000, th=40):
+def evaluate_images(imgs_dict, dir, num_images=5, ite=12000, th=40):
     """
     Evaluate the super-resolution images against high-resolution images.
     :param dir: str, directory containing HR and SR images.
@@ -67,26 +69,12 @@ def evaluate_images(dir, num_images=5, ite=12000, th=40):
     """
     crop_size = (255, 255)
     mse_values = []
-    output_path = Path(dir) / "frangi{}".format(th)
+    output_path = Path(dir) / "frangi"
     output_path.mkdir(parents=True, exist_ok=True)
 
     for i in range(1, num_images + 1):
-        # Construct filenames
-        hr_filename = f"{ite}_{i}_hr.mhd"
-        sr_filename = f"{ite}_{i}_sr.mhd"
-        inf_filename = f"{ite}_{i}_inf.mhd"
-
-        # mask_filename = f"TPCC/hr_{i-1}_binary.mhd"
-
-        # ic(hr_filename, sr_filename, inf_filename, mask_filename)
-
-        # Load images
-        hr_image = sitk.GetArrayFromImage(sitk.ReadImage(os.path.join(dir, hr_filename)))
-        sr_image = sitk.GetArrayFromImage(sitk.ReadImage(os.path.join(dir, sr_filename)))
-        inf_image = sitk.GetArrayFromImage(sitk.ReadImage(os.path.join(dir, inf_filename)))
-
-        # mask_image = sitk.GetArrayFromImage(sitk.ReadImage(os.path.join(dir, mask_filename)))
-
+        hr_image = imgs_dict["hr"][i-1]
+        sr_image = imgs_dict["sr"][i-1]
         # Apply Frangi filter
         hr_frangi = apply_frangi(hr_image)*255
         sr_frangi = apply_frangi(sr_image)*255
@@ -128,6 +116,8 @@ def evaluate_images(dir, num_images=5, ite=12000, th=40):
 
         mse_values.append(mse)
 
+    df = pd.DataFrame(mse_values)
+    df.to_csv(output_path / f"{th}_mse.csv")
     # Compute average MSE
     average_mse = np.mean(mse_values)
     return average_mse
@@ -142,21 +132,42 @@ dir_list = [
 # dir = "experiments/sr_patch_64_val_250115_091847/results" # ori2回目のtest
 # dir = "experiments/sr_patch_64_val_250118_042926/results" # wd2回目のtest
 
-threshold = 0.01
-print(f"Threshold: {threshold}")
+thresholds = [0, 0.01, 0.05, 0.1, 0.2, 0.3]
+# threshold = 0.01
 
-threshold = threshold * 255
-# print(f"Threshold: {threshold}")
+
+    # print(f"Threshold: {threshold}")
 for dir in dir_list:
     print(f"dir: {dir}")
     epoch = int(dir.split("/")[-1]) if dir.split("/")[-1] != "results" else 0
     ite = round(epoch * 30, -2)
-
-    # print(f"ite: {ite}")
     num_images = 10 if dir.split("/")[-1] == "results" else 5
 
-    average_mse = evaluate_images(dir, num_images=num_images, ite=ite, th=threshold)
-    print(f"Average MSE across {num_images} images: {average_mse}")
+    hr_img_list = []
+    sr_img_list = []
+    inf_img_list = []
+
+    for i in tqdm(range(1, num_images + 1)):
+        hr_filename = f"{ite}_{i}_hr.mhd"
+        sr_filename = f"{ite}_{i}_sr.mhd"
+        inf_filename = f"{ite}_{i}_inf.mhd"
+    # Load images
+        hr_img_list.append(sitk.GetArrayFromImage(sitk.ReadImage(os.path.join(dir, hr_filename))))
+        sr_img_list.append(sitk.GetArrayFromImage(sitk.ReadImage(os.path.join(dir, sr_filename))))
+        inf_img_list.append(sitk.GetArrayFromImage(sitk.ReadImage(os.path.join(dir, inf_filename))))
+
+    # print(f"ite: {ite}")
+    img_dict = {
+        "hr": hr_img_list,
+        "sr": sr_img_list,
+        "inf": inf_img_list
+    }
+
+    for threshold in thresholds:
+        print(f"Threshold: {threshold}")
+        threshold = threshold * 255
+        average_mse = evaluate_images(img_dict, dir, num_images=num_images, ite=ite, th=threshold)
+        print(f"Average MSE across {num_images} images: {average_mse}")
 
 # epoch = int(dir.split("/")[-1]) if dir.split("/")[-1] != "results" else 0
 # ite = round(epoch * 30, -2)

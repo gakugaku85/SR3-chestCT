@@ -45,7 +45,7 @@ def create_color_label_image(labels, nlabels, shape, output_path, img_name):
             img[labels == j, ] = cols[j - 1]
     cv2.imwrite(output_path + "ori_imgs/" + img_name + "label" + ".png", img)
 
-def hysteresis_process(array, th):
+def hysteresis_process(array, th, output_path, img_name):
     high_label_array = cv2.adaptiveThreshold(
         array, 1, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
         cv2.THRESH_BINARY, blockSize=5, C=-5
@@ -57,16 +57,19 @@ def hysteresis_process(array, th):
             high_labels[high_labels == i] = 0
     high_label_array = (high_labels > 0).astype(np.uint8)
 
+    create_color_label_image(high_labels, nlabels, array.shape, output_path, img_name=img_name+"_high_")
 
     low_label_array = cv2.adaptiveThreshold(
         array, 1, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-        cv2.THRESH_BINARY, blockSize=255, C=-5
+        cv2.THRESH_BINARY, blockSize=161, C=-5
     )
     nlabels, low_labels, stats, _ = cv2.connectedComponentsWithStats(low_label_array, connectivity=8)
 
     for i in range(1, nlabels):  # 0は背景なのでスキップ
         if stats[i, cv2.CC_STAT_AREA] <= th:  # 面積がth以下の場合
             low_labels[low_labels == i] = 0
+
+    create_color_label_image(low_labels, nlabels, array.shape, output_path, img_name=img_name+"_low_")
 
     hysteresis_array =  low_labels * high_label_array
     hysteresis_labels_unique = np.unique(hysteresis_array)[1:]
@@ -87,12 +90,7 @@ def apply_filter_to_binary(input_img, output_path, th=20, img_name=""):
     array = array.astype(np.uint8)
     # ic(array.max(), array.min())
 
-    binary_array = hysteresis_process(array, th) # ヒステリシス処理
-
-    # binary_array = cv2.adaptiveThreshold(   # 適応的二値化
-    #     array, 1, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-    #     cv2.THRESH_BINARY, blockSize=201, C=-5
-    # )
+    binary_array = hysteresis_process(array, th, output_path, img_name) # ヒステリシス処理
 
     nlabels, labels, stats, _ = cv2.connectedComponentsWithStats(binary_array, connectivity=8)
 
@@ -204,8 +202,8 @@ def delete_label_th(labels, stats, nlabels, th):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-p', '--path', type=str,
-                        default="sr_patch_64_val_250115_091847")
-    parser.add_argument('-t', '--th', type=int, default=30)
+                        default="val_ori_best")
+    parser.add_argument('-t', '--th', type=int, default=10)
     args = parser.parse_args()
 
     test_path = "experiments/" + args.path + "/results"
@@ -288,12 +286,9 @@ if __name__ == "__main__":
         fpcc = sr_nlabel - sr_baseHR_tpcc_num
         fpcc_list.append(fpcc)
 
-        ic(i)
+        ic(GT_hr_delta_tpcc, GT_sr_delta_tpcc)
 
         df_list.append([GT_tpcc_num, hr_tpcc_num, sr_nlabel, hr_baseGT_tpcc_num, sr_baseGT_tpcc_num, GT_hr_delta_tpcc, GT_sr_delta_tpcc, sr_baseHR_tpcc_num, sr_hr_delta_tpcc, fpcc])
-
-    # 小数点第2位まで表示
-    GT_hr_delta_tpcc_mean = np.mean(GT_hr_delta_tpcc_list).round(2)
 
     print("GT_hr_delta_tpcc: ", np.mean(GT_hr_delta_tpcc_list).round(2), "GT_sr_delta_tpcc: ", np.mean(GT_sr_delta_tpcc_list).round(2), "sr-hr_delta_tpcc: ", np.mean(delta_tpcc_list).round(2))
     df = pd.DataFrame(df_list, columns=["GT_tpcc_num", "hr_label_num", "sr_label_num", "hr_baseGT_tpcc_num", "sr_baseGT_tpcc_num", "GT_hr_delta_tpcc", "GT_sr_delta_tpcc", "sr_baseHR_tpcc_num", "sr_hr_delta_tpcc", "fpcc"])
