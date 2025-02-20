@@ -53,7 +53,7 @@ def hysteresis_process(array, th, output_path, img_name):
     nlabels, high_labels, stats, _ = cv2.connectedComponentsWithStats(high_label_array, connectivity=8)
 
     for i in range(1, nlabels):
-        if stats[i, cv2.CC_STAT_AREA] <= th:
+        if stats[i, cv2.CC_STAT_AREA] <= 50:
             high_labels[high_labels == i] = 0
     high_label_array = (high_labels > 0).astype(np.uint8)
 
@@ -207,14 +207,12 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     test_path = "experiments/" + args.path + "/results"
-    # json_path = "/take/dataset/microCT_slices_1792_2/kakuheki_patch_256/"
-    json_path = "/take/dataset/microCT_slices_1792_2/"
     result_path = "experiments/" + args.path + "/results/TPCC/"
 
     os.makedirs(result_path, exist_ok=True)
     os.makedirs(result_path + "/ori_imgs", exist_ok=True)
 
-    json_path = osp.join(json_path, 'patch_metadata_128.json')
+    json_path = osp.join('/take/dataset/microCT_slices_1792_2/patch_metadata_128.json')
     patch_data_list = load_json(json_path)
 
     hr_paths = natsorted(glob(osp.join(test_path, '*_hr.mhd')))
@@ -265,7 +263,6 @@ if __name__ == "__main__":
 
         # hr_baseGT_tpcc_num = count_tpcc_per_connected_from_base_image(hr_labels, GT_labels, result_path, i, img_name="hr_baseGT")
         # sr_baseGT_tpcc_num = count_tpcc_per_connected_from_base_image(sr_labels, GT_labels, result_path, i, img_name="sr_baseGT")
-        # input()
 
         # hr_labels, hr_nlabel= delete_label_th(hr_labels, hr_stats, hr_nlabel, 30)
         # sr_labels, sr_nlabel = delete_label_th(sr_labels, sr_stats, sr_nlabel, 30)

@@ -220,7 +220,6 @@ class GaussianDiffusion(nn.Module):
         image_size,
         channels=3,
         loss_type='l1',
-        loss_name='wd',
         under_step_wd_loss=2000,
         conditional=True,
         schedule_opt=None,
@@ -232,7 +231,6 @@ class GaussianDiffusion(nn.Module):
         self.image_size = image_size
         self.denoise_fn = denoise_fn
         self.loss_type = loss_type
-        self.loss_name = loss_name
         self.conditional = conditional
         self.under_step_wd_loss = under_step_wd_loss
         self.weight_thre = weight_thre

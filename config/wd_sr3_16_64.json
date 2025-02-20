@@ -10,19 +10,14 @@
         "results": "results",
         "checkpoint": "checkpoint",
         // "resume_state": null
-        // "resume_state": "experiments/sr_patch_64_241125_090218/checkpoint/I62000_E2067" oriの最良
-        // "resume_state": "experiments/sr_patch_64_241120_035300/checkpoint/I26000_E867" // wdの最良
-        // "resume_state": "experiments/sr_patch_64_250114_105236/checkpoint/I98000_E16335" // ori二回目の最良
-        // "resume_state": "experiments/sr_patch_64_250114_105236/checkpoint/I106000_E17668"
-        "resume_state": "experiments/sr_patch_64_250114_092937/checkpoint/I122000_E20335"
-
+        "resume_state": "experiments/ori/checkpoint/I96000_E16001" // oriの最良
     },
     "datasets": {
         "train": {
             "name": "1784",
             "mode": "HR", // whether need LR img
-            "dataroot": "/take/dataset/microCT_slices_1784",
-            "datatype": "mhd", //lmdb or img, path of img files
+            "dataroot": "/take/dataset/microCT_slices_1784", //trainingのデータセットのパス　空白で二個目のデータセットも読み込むことができる
+            "datatype": "mhd",
             "l_resolution": 16, // low resolution need to super_resolution
             "r_resolution": 64, // high resolution
             "batch_size": 128,
@@ -91,10 +86,9 @@
         "diffusion": {
             "image_size": 64,
             "channels": 1, //sample channel
-            "loss_func": "wd", //wd or l1
-            "loss_name": "wd",  //wd or ori
+            "loss_func": "l1", //wd or l1
             "conditional": true, // unconditional generation or unconditional generation(super_resolution)
-            "under_step_wd_loss": 500,
+            "under_step_wd_loss":  2000,
             "pd_weight_thre": 0.01,
             "wdloss_weight": 100
         }
